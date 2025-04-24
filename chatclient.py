@@ -5,16 +5,16 @@ from sys import stdout, stdin, argv, exit
 
 def usage_checking(arr):
     if len(sys.argv) < 3 or len(sys.argv) > 3:  # Not enough/too many arguments
-        print("Usage: chatclient port_number client_username", file=sys.stderr)
+        print("Usage: chatclient port_number client_username\n", file=sys.stderr)
         exit(3)
 
     if sys.argv[1] == "" or sys.argv[2] == "":  # empty strings
-        print("Usage: chatclient port_number client_username", file=sys.stderr)
+        print("Usage: chatclient port_number client_username\n", file=sys.stderr)
         exit(3)
 
-    # NOT SURE IF THIS SHOULD BE DONE HERE?? SINCE PORT NUUMBER NOT CHECKED AS INT YET
+    # TODO: NOT SURE IF THIS SHOULD BE DONE HERE?? SINCE PORT NUUMBER NOT CHECKED AS INT YET
     if sys.argv[1] < 1024 or sys.argv[1] > 65535:  # port number out of range
-        print("Usage: chatclient port_number client_username", file=sys.stderr)
+        print("Usage: chatclient port_number client_username\n", file=sys.stderr)
         exit(3)
 
     return
@@ -22,7 +22,7 @@ def usage_checking(arr):
 def check_port(port):
     # Check port number is integer
     if not port.isdigit():
-        print(f"Error: Unable to connect to port {port}.", file=sys.stderr)
+        print(f"Error: Unable to connect to port {port}.\n", file=sys.stderr)
         exit(7)
 
     # Check chatclient can connect to server on socket
@@ -31,14 +31,13 @@ def check_port(port):
     try:
         sock.connect((hostname, port))
     except Exception:
-        print(f"Error: Unable to connect to port {port}.", file=sys.stderr)
+        print(f"Error: Unable to connect to port {port}.\n", file=sys.stderr)
         exit(7)
 
 
 def check_username(client):
-    # NEED TO IMPLEMENT BASED ON SERVER PROTOCOL
+    # TODO: NEED TO IMPLEMENT BASED ON SERVER PROTOCOL
     pass
-
 
 def main():
     usage_checking(sys.argv)
