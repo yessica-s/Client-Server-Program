@@ -116,7 +116,7 @@ class Server:
             listening_socket.bind(('', port))
         except Exception:
             print(f"Error: unable to listen on port {port}.\n", file=sys.stderr)
-            exit(EXIT_CODES.PORT_ERROR)
+            exit(EXIT_CODES.PORT)
         listening_socket.listen(5)
         
         return listening_socket 
@@ -152,7 +152,7 @@ class Server:
                 channel.clients[client_username] = client_socket
 
             # check capacity and do this or queue message
-            print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".", file=sys.stdout)
+            print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".\n", file=sys.stdout)
             sys.stdout.flush()
     
     def main(self):

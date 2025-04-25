@@ -50,18 +50,22 @@ def main():
 
     sock = start_connection(port) # returns connected socket to send stuff on
     sock.send(client_username.encode()) # send username to server
-    response = sock.recv(BUFSIZE).decode().strip() # server response- either username already exists or "welcome to chatclient"... - see spec
+    response = sock.recv(BUFSIZE).decode().strip() # server response - either username already exists or "welcome to chatclient"... - see spec
 
-    # flush either message to stdout
+    # flush either message (welcome message or username error message) to stdout
     print(response, file=sys.stdout)
     sys.stdout.flush()
     
     # if got username error, also exit program status 2
-    username_error_message = rf"^\[Server Message\] Channel \".*\" already has user {client_username}\.$"
+    username_error_message = rf"^\[Server Message\] Channel \".*\" already has user {client_username}\.\n$"
     if re.match(username_error_message, response):
         exit(EXIT_CODES.DUPLICATE_USERNAME_ERROR)
 
+    response = sock.recv(BUFSIZE).decode().strip() # server response - either joined channel or in queue
+    print(response, file=sys.stdout)
+    sys.stdout.flush()
 
+    # start handling user input in while loop (can be part of multiple channels or no? no right since only done at start of program call)
 
 
 if __name__ == "__main__":
