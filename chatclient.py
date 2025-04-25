@@ -3,6 +3,7 @@ from socket import *
 from sys import stdout, stdin, argv, exit
 import re
 from enum import Enum
+from threading import Thread
 
 BUFSIZE = 1024
 
@@ -43,6 +44,19 @@ def start_connection(port):
         print(f"Error: Unable to connect to port {port}.\n", file=sys.stderr)
         exit(EXIT_CODES.PORT_CHECK_ERROR)
 
+def handle_stdin(sock):
+    while True: 
+        for line in stdin:
+            sock.send(line.encode())
+            data = sock.recv(BUFSIZE)
+            if not data:
+                    break
+            stdout.buffer.write(data)
+            stdout.flush()
+
+def handle_socket(sock):
+    pass
+
 def main():
     usage_checking()
     port = int(sys.argv[1])
@@ -65,7 +79,19 @@ def main():
     print(response, file=sys.stdout)
     sys.stdout.flush()
 
-    # start handling user input in while loop (can be part of multiple channels or no? no right since only done at start of program call)
+    # Ready for communication
+    # Open 2 threads
+    # - one for reading from stdin and sending data
+    # - one for reading from the socket and receiving data from server/channel
+    # TODO: do the same for server, per client, one thread to read, one threat to write
+
+    # create thread to read from stdin
+    stdin_thread = Thread(target=handle_stdin, args=(sock, ))
+    stdin_thread.start()
+
+    # create thread to read from network socket from server
+    socket_thread = Thread(target=handle_socket, args=(sock, ))
+    socket_thread.start()  
 
 
 if __name__ == "__main__":
