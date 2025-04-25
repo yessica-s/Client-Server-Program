@@ -29,11 +29,6 @@ def usage_checking():
     return
 
 def start_connection(port):
-    # Check port number is integer
-    if not port.isdigit():
-        print(f"Error: Unable to connect to port {port}.\n", file=sys.stderr)
-        exit(EXIT_CODES.PORT_CHECK_ERROR)
-
     # Check chatclient can connect to server on socket
     hostname = "localhost"
     try:
@@ -66,7 +61,14 @@ def handle_socket(sock):
 
 def main():
     usage_checking()
-    port = int(sys.argv[1])
+    # check port is integer here while converting
+    port = None
+    try:
+        port = int(sys.argv[1])
+    except:
+        print(f"Error: Unable to connect to port {port}.\n", file=sys.stderr)
+        exit(EXIT_CODES.PORT_CHECK_ERROR)
+
     client_username = sys.argv[2]
 
     sock = start_connection(port) # returns connected socket to send stuff on
