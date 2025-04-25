@@ -153,6 +153,7 @@ class Server:
                 connected_message = f"Welcome to chatclient, {client_username}.\n"
                 client_socket.sendall(connected_message.encode())
 
+                connected = False # tracks whether client connected (T) or in queue (F)
                 # Check capacity and queue/connect client
                 if len(channel.connected_clients) == channel.capacity: # Maximum capacity, queue client
                     channel.queue.put(client_username)
@@ -163,9 +164,14 @@ class Server:
                     channel.connected_clients.append(client_username)
                     channel.client_sockets[client_username] = client_socket
                     print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".\n", file=sys.stdout)
+                    connected = True
                 
                 sys.stdout.flush()
 
+        self.handle_communication(channel, client_username, connected)
+
+    def handle_communication(self, channel, client_username, connected):
+        pass
 
     def main(self):
         listening_socket = self.load_config()
