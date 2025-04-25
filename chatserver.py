@@ -1,10 +1,9 @@
-import sys
+import sys 
 import re
 from socket import *
-# from sys import stdout,stdin,argv,exit
 from threading import Lock, Thread, current_thread
-from time import sleep
 from enum import Enum
+from queue import Queue
 
 class EXIT_CODES(Enum):
     CONFIG_FILE_ERROR = 5
@@ -24,9 +23,12 @@ class Channel:
         self.port = port
         self.capacity = capacity
         self.socket = socket
-        self.client_usernames = [] # connected clients. SHOULD THIS STORE QUEUE USERNAMES ALSO? no
-        # self.queue = [] # clients waiting to join
-        self.clients = {} # client -> socket
+
+        self.connected_clients = [] # connected clients. DOES NOT STORE QUEUE USERNAMES
+        self.client_sockets = {} # client -> socket
+
+        self.queue = Queue() # clients waiting to join
+        self.queue_sockets = {}
 
 class Server: 
     def __init__(self, afk_time, config_file): 
@@ -129,7 +131,9 @@ class Server:
 
     # Create a new thread for each client
     def handle_channel(self, channel):
-        # TODO: CHECK CAPACITY LATER???, muted clients, afk timer, counter thing from given code?
+        # TODO: muted clients, afk timer, counter thing from given code?
+        # TODO: join threads when finished? 
+        # TODO: remember to close sockets for clients
         while True: 
             client_socket, client_address = channel.socket.accept()
             client_thread = Thread(target=self.handle_client, args=(channel, client_socket, client_address))
@@ -140,7 +144,7 @@ class Server:
         
         # check username not already in channel TODO: check names in queue? asked on ED
         with counter_lock:
-            if client_username  in channel.client_usernames: # duplicate username
+            if client_username in channel.connected_clients: # duplicate username
                 duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}.\n"
                 client_socket.sendall(duplicate_username_message.encode())  
                 client_socket.close()
@@ -148,16 +152,23 @@ class Server:
             else:      
                 connected_message = f"Welcome to chatclient, {client_username}.\n"
                 client_socket.sendall(connected_message.encode())
-                channel.client_usernames.append(client_username)
-                channel.clients[client_username] = client_socket
 
-            # check capacity and do this or queue message
-            print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".\n", file=sys.stdout)
-            sys.stdout.flush()
-    
+                # Check capacity and queue/connect client
+                if len(channel.connected_clients) == channel.capacity: # Maximum capacity, queue client
+                    channel.queue.put(client_username)
+                    channel.queue_sockets[client_username] = client_socket
+                    users_ahead = channel.queue.qsize() - 1
+                    print(f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you.\n", file=sys.stdout)
+                else: # Connect client
+                    channel.connected_clients.append(client_username)
+                    channel.client_sockets[client_username] = client_socket
+                    print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".\n", file=sys.stdout)
+                
+                sys.stdout.flush()
+
+
     def main(self):
         listening_socket = self.load_config()
-        print("hello")
         self.process_connections()  
 
 def usage_checking(arr): 
