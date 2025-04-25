@@ -116,7 +116,7 @@ class Server:
             listening_socket.bind(('', port))
         except Exception:
             print(f"Error: unable to listen on port {port}.\n", file=sys.stderr)
-            exit(EXIT_CODES.PORT)
+            exit(EXIT_CODES.PORT_ERROR)
         listening_socket.listen(5)
         
         return listening_socket 
@@ -157,6 +157,7 @@ class Server:
     
     def main(self):
         listening_socket = self.load_config()
+        print("hello")
         self.process_connections()  
 
 def usage_checking(arr): 
