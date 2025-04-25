@@ -50,12 +50,19 @@ def handle_stdin(sock):
             sock.send(line.encode())
             data = sock.recv(BUFSIZE)
             if not data:
-                    break
-            stdout.buffer.write(data)
-            stdout.flush()
+                break
+            # stdout.buffer.write(data)
+            # stdout.flush()
+            print(data.decode().strip(), file=sys.stdout)
+            sys.stdout.flush()
 
 def handle_socket(sock):
-    pass
+    while True: 
+        data = sock.recv(BUFSIZE)
+        if not data:
+            break
+        print(data.decode().strip(), file=sys.stdout)
+        sys.stdout.flush()
 
 def main():
     usage_checking()
@@ -93,6 +100,11 @@ def main():
     socket_thread = Thread(target=handle_socket, args=(sock, ))
     socket_thread.start()  
 
+    # wait for threads to finish
+    stdin_thread.join()
+    socket_thread.join()
+
+    sock.close() # somewhere close socket once connection terminated?
 
 if __name__ == "__main__":
     main()
