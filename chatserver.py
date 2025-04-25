@@ -38,7 +38,6 @@ class Server:
         self.channel_names = []
         self.channel_ports = []
 
-
     def load_config(self): # load the config file and check invalid lines
         listening_socket = None
         with open(self.config_file, 'r') as file: 
@@ -53,11 +52,11 @@ class Server:
 
                 if not len(channel) == 4: # too little/many arguments
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if not channel[0] == "channel":
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
                 
                 channel_name = channel[1] # TODO: check any args empty strings???, check if config file None or empty???
                 channel_port = channel[2]
@@ -65,35 +64,35 @@ class Server:
 
                 if not re.match("^[A-Za-z0-9_]*$", channel_name): # check channel only letters, numbers, underscores
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if channel_name in self.channel_names: # check channel name unique
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if not channel_port.isdigit(): # check port is integer
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 channel_port = int(channel[2]) # convert to int after checking
 
                 if not (1024 <= channel_port <= 65535): # port out of range
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if channel_port in self.channel_ports: # check channel port unique
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if not channel_capacity.isdigit(): # check capacity is integer
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 channel_capacity = int(channel[3]) # convert to int after checking
 
                 if not (1 <= channel_capacity <= 8): # capacity out of range
                     print("Error: Invalid configuration file.\n", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 listening_socket = self.start_server(channel_port)
 
@@ -118,7 +117,7 @@ class Server:
             listening_socket.bind(('', port))
         except Exception:
             print(f"Error: unable to listen on port {port}.\n", file=sys.stderr)
-            exit(EXIT_CODES.PORT_ERROR)
+            exit(EXIT_CODES.PORT_ERROR.value)
         listening_socket.listen(5)
         
         return listening_socket 
@@ -181,25 +180,25 @@ def usage_checking(arr):
     config_file = None
     afk_time = 100 # default 100
 
-    # TODO: need to check if values for anything are empty strings!!!, also for config file checked in server
+    # TODO: need to check if values for anything are empty strings!!!, also for empty config file checked in server
 
     if len(sys.argv) not in (2,3): # too little/ too many arguments
         print("Usage: chatserver [afk_time] config_file\n", file=sys.stderr)
-        exit(EXIT_CODES.USAGE_ERROR)
+        exit(EXIT_CODES.USAGE_ERROR.value)
 
     config_file = sys.argv[1] # default as only argument if afk_time not present
 
     if len(sys.argv) == 3: # afk_time argument present, need to check btwn 1 and 1000 inclusive
         if not sys.argv[1].isdigit(): # check afk_time is integer
             print("Usage: chatserver [afk_time] config_file\n", file=sys.stderr)
-            exit(EXIT_CODES.USAGE_ERROR)
+            exit(EXIT_CODES.USAGE_ERROR.value)
         
         afk_time = int(sys.argv[1])
         config_file = sys.argv[2] # if afk_time argument present, change to second argument
 
         if afk_time < 1 or afk_time > 1000: # out of range
             print("Usage: chatserver [afk_time] config_file\n", file=sys.stderr)
-            exit(EXIT_CODES.USAGE_ERROR)
+            exit(EXIT_CODES.USAGE_ERROR.value)
 
     # attempt to open the configuration file
     try:
@@ -207,7 +206,7 @@ def usage_checking(arr):
             pass
     except FileNotFoundError:
         print("Error: Invalid configuration file.\n", file=sys.stderr)
-        exit(EXIT_CODES.CONFIG_FILE_ERROR)
+        exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
     return config_file, afk_time
 
