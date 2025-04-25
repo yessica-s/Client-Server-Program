@@ -100,7 +100,7 @@ class Server:
                 self.channel_names.append(channel_name)
                 self.channel_ports.append(channel_port)
 
-                print(f" Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.\n", file=sys.stdout)
+                print(f"Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.\n", file=sys.stdout)
                 sys.stdout.flush()
 
             print("Welcome to chatserver.\n", file=sys.stdout)
