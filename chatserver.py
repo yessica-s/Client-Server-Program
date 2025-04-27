@@ -28,7 +28,7 @@ class Channel:
         self.client_sockets = {} # client -> socket
 
         self.queue = Queue() # clients waiting to join
-        self.queue_sockets = {}
+        self.queue_sockets = {} # client -> socket
 
 class Server: 
     def __init__(self, afk_time, config_file): 
@@ -141,9 +141,14 @@ class Server:
     def handle_client(self, channel, client_socket, client_address):
         client_username = client_socket.recv(BUFSIZE).decode().strip() # get client username, sent automatically by client after connection
         
-        # check username not already in channel TODO: check names in queue? asked on ED
+        # check username not already in channel
         with counter_lock:
-            if client_username in channel.connected_clients: # duplicate username
+            if client_username in channel.connected_clients: # duplicate username in connected list
+                duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}.\n"
+                client_socket.sendall(duplicate_username_message.encode())  
+                client_socket.close()
+                return
+            elif client_username in channel.queue: # duplicate username in queue
                 duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}.\n"
                 client_socket.sendall(duplicate_username_message.encode())  
                 client_socket.close()
@@ -170,6 +175,7 @@ class Server:
         self.handle_communication(channel, client_username, connected)
 
     def handle_communication(self, channel, client_username, connected):
+        # continuously listen and send data to other clients in channel
         pass
 
     def main(self):
