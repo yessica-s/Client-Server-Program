@@ -51,11 +51,11 @@ class Server:
                 channel = line.split(" ")
 
                 if not len(channel) == 4: # too little/many arguments
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if not channel[0] == "channel":
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
                 
                 channel_name = channel[1] # TODO: check any args empty strings???, check if config file None or empty???
@@ -63,35 +63,35 @@ class Server:
                 channel_capacity = channel[3]
 
                 if not re.match("^[A-Za-z0-9_]*$", channel_name): # check channel only letters, numbers, underscores
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if channel_name in self.channel_names: # check channel name unique
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if not channel_port.isdigit(): # check port is integer
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 channel_port = int(channel[2]) # convert to int after checking
 
                 if not (1024 <= channel_port <= 65535): # port out of range
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if channel_port in self.channel_ports: # check channel port unique
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 if not channel_capacity.isdigit(): # check capacity is integer
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 channel_capacity = int(channel[3]) # convert to int after checking
 
                 if not (1 <= channel_capacity <= 8): # capacity out of range
-                    print("Error: Invalid configuration file.\n", file=sys.stderr)
+                    print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 listening_socket = self.start_server(channel_port)
@@ -101,10 +101,10 @@ class Server:
                 self.channel_names.append(channel_name)
                 self.channel_ports.append(channel_port)
 
-                print(f"Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.\n", file=sys.stdout)
+                print(f"Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.", file=sys.stdout)
                 sys.stdout.flush()
 
-            print("Welcome to chatserver.\n", file=sys.stdout)
+            print("Welcome to chatserver.", file=sys.stdout)
             sys.stdout.flush()
         
         file.close()
@@ -116,7 +116,7 @@ class Server:
         try:
             listening_socket.bind(('', port))
         except Exception:
-            print(f"Error: unable to listen on port {port}.\n", file=sys.stderr)
+            print(f"Error: unable to listen on port {port}.", file=sys.stderr)
             exit(EXIT_CODES.PORT_ERROR.value)
         listening_socket.listen(5)
         
@@ -144,17 +144,17 @@ class Server:
         # check username not already in channel
         with counter_lock:
             if client_username in channel.connected_clients: # duplicate username in connected list
-                duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}.\n"
+                duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}."
                 client_socket.sendall(duplicate_username_message.encode())  
                 client_socket.close()
                 return
             elif client_username in channel.queue: # duplicate username in queue
-                duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}.\n"
+                duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}."
                 client_socket.sendall(duplicate_username_message.encode())  
                 client_socket.close()
                 return
             else:      
-                connected_message = f"Welcome to chatclient, {client_username}.\n"
+                connected_message = f"Welcome to chatclient, {client_username}."
                 client_socket.sendall(connected_message.encode())
 
                 connected = False # tracks whether client connected (T) or in queue (F)
@@ -163,11 +163,11 @@ class Server:
                     channel.queue.put(client_username)
                     channel.queue_sockets[client_username] = client_socket
                     users_ahead = channel.queue.qsize() - 1
-                    print(f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you.\n", file=sys.stdout)
+                    print(f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you.", file=sys.stdout)
                 else: # Connect client
                     channel.connected_clients.append(client_username)
                     channel.client_sockets[client_username] = client_socket
-                    print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".\n", file=sys.stdout)
+                    print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".", file=sys.stdout)
                     connected = True
                 
                 sys.stdout.flush()
@@ -189,21 +189,21 @@ def usage_checking(arr):
     # TODO: need to check if values for anything are empty strings!!!, also for empty config file checked in server
 
     if len(sys.argv) not in (2,3): # too little/ too many arguments
-        print("Usage: chatserver [afk_time] config_file\n", file=sys.stderr)
+        print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
 
     config_file = sys.argv[1] # default as only argument if afk_time not present
 
     if len(sys.argv) == 3: # afk_time argument present, need to check btwn 1 and 1000 inclusive
         if not sys.argv[1].isdigit(): # check afk_time is integer
-            print("Usage: chatserver [afk_time] config_file\n", file=sys.stderr)
+            print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
             exit(EXIT_CODES.USAGE_ERROR.value)
         
         afk_time = int(sys.argv[1])
         config_file = sys.argv[2] # if afk_time argument present, change to second argument
 
         if afk_time < 1 or afk_time > 1000: # out of range
-            print("Usage: chatserver [afk_time] config_file\n", file=sys.stderr)
+            print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
             exit(EXIT_CODES.USAGE_ERROR.value)
 
     # attempt to open the configuration file
@@ -211,7 +211,7 @@ def usage_checking(arr):
         with open(config_file) as file:
             pass
     except FileNotFoundError:
-        print("Error: Invalid configuration file.\n", file=sys.stderr)
+        print("Error: Invalid configuration file.", file=sys.stderr)
         exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
     return config_file, afk_time
