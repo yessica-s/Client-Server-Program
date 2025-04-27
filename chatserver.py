@@ -1,7 +1,6 @@
-import sys 
-import re
+import sys, re
 from socket import *
-from threading import Lock, Thread, current_thread
+from threading import Lock, Thread, Timer, current_thread
 from enum import Enum
 from queue import Queue
 
@@ -175,7 +174,42 @@ class Server:
         self.handle_communication(channel, client_username, connected)
 
     def handle_communication(self, channel, client_username, connected):
-        # continuously listen and send data to other clients in channel
+        # Continuously listen and send data to other clients in channel
+        
+        # Get client socket
+        sock = channel.client_sockets[client_username]
+        if not connected:
+            sock = channel.queue_sockets[client_username]
+
+        while not connected: # if and while in queue, filter certain commands
+            data = sock.recv(BUFSIZE)
+            if not data:
+                break
+            # TODO: do stuff with data
+            # print(data.decode().strip(), file=sys.stdout)
+            
+        while True: # connected
+            # Start timer for afk
+            timer = Timer(self.afk_time, self.disconnect, args=(channel, client_username))
+            timer.start()
+            data = sock.recv(BUFSIZE)
+            timer.cancel() # Cancel timer since data received
+            if not data:
+                break
+            # TODO: do stuff with data
+            # print(data.decode().strip(), file=sys.stdout)
+
+        self.disconnect(channel, client_username) # Disconnected since broken from loops
+
+    def disconnect(self, channel, client_username):
+        # what happens when client times out, add some arguments, change queue, connected client list etc.
+        
+        # TODO: send message to all other connected clients
+        # TODO: send message to stdout
+        # TODO: send messaage to client about to be disconnected
+        # TODO: remove client from list and from socket dict
+        # TODO: see if any client needs to be added from queue
+        
         pass
 
     def main(self):
@@ -200,13 +234,13 @@ def usage_checking(arr):
             exit(EXIT_CODES.USAGE_ERROR.value)
         
         afk_time = int(sys.argv[1])
-        config_file = sys.argv[2] # if afk_time argument present, change to second argument
+        config_file = sys.argv[2] # if afk_time argument present, change config_file to second argument
 
         if afk_time < 1 or afk_time > 1000: # out of range
             print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
             exit(EXIT_CODES.USAGE_ERROR.value)
 
-    # attempt to open the configuration file
+    # Attempt to open the configuration file
     try:
         with open(config_file) as file:
             pass
