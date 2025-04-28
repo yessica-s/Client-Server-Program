@@ -175,7 +175,7 @@ class Server:
     def handle_communication(self, channel, client_username):
         # Continuously listen and send data to other clients in channel
         
-        # Get client socket TODO: need to constantly check in connected list
+        # Get client socket
         sock = None
         with counter_lock:
             if client_username in channel.connected_clients: # connected
@@ -183,9 +183,13 @@ class Server:
             else: # queued
                 sock = channel.queue_sockets[client_username]
 
+        # TODO: IF CLIENT IN FRONT OF QUEUE LEAVES: SEND qaiting message 
+        # TODO: ALREADY HANDLED IN AFK SCENARIO BUT OTHERWISE WHERE SHOULD THIS BE HANDLED
+
         while True: # Queue Client 
             with counter_lock:
-                if client_username not in channel.queue: # if left queue, break out of this loop 
+                queue_clients = list(channel.queue)
+                if client_username not in queue_clients: # if left queue, break out of this loop 
                     break
             data = sock.recv(BUFSIZE)
             if not data:
@@ -226,6 +230,9 @@ class Server:
                 socket = channel.client_sockets[client] # get socket for each client
                 socket.sendall(afk_message.encode()) # send
 
+                if client == client_username: # if disconnected client, close its socket
+                    socket.close() 
+
             # Remove client from list and from socket dict
             channel.connected_clients.remove(client_username) # remove from connected clients list
             channel.client_sockets.pop(client_username) # remove from connected sockets list
@@ -251,6 +258,9 @@ class Server:
                     message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
                     sock.sendall(message.encode())
                     users_ahead += 1 # increment number of users ahead
+
+
+        # TODO: return? what happens after timeout? close client thread?
 
     def notify_connected_client(self, username, channel_name, socket):
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
