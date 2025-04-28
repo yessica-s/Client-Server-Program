@@ -129,7 +129,7 @@ class Server:
 
     # Create a new thread for each client
     def handle_channel(self, channel):
-        # TODO: muted clients, counter thing from given code?
+        # TODO: muted clients
         # TODO: join threads when finished? 
         # TODO: remember to close sockets for clients
         while True: 
@@ -164,11 +164,9 @@ class Server:
                 else: # Connect client
                     channel.connected_clients.append(client_username)
                     channel.client_sockets[client_username] = client_socket
-                    print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".", file=sys.stdout)
-                
-                    # notify client
-                    message = f"[Server Message] You have joined the channel \"{channel.name}\"."
-                    client_socket.sendall(message.encode())
+
+                    # Notify client and server stdout
+                    self.notify_connected_client(client_username, channel.name, client_socket)
 
                 sys.stdout.flush()
 
@@ -234,8 +232,8 @@ class Server:
             channel.client_sockets.pop(client_username) # remove from connected sockets list
 
             # Promote any clients from queue
-            if not channel.queue.isEmpty(): # If there is client in queue
-                new_client_username = channel.queue.dequeue() # remove from queue
+            if not channel.queue.empty(): # If there is client in queue
+                new_client_username = channel.queue.get() # remove from queue
                 new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
                 channel.queue_sockets.pop(new_client_username) # remove from dict
 
@@ -243,9 +241,21 @@ class Server:
                 channel.connected_clients.append(new_client_username)
                 channel.client_sockets[new_client_username] = new_client_socket
 
+                # Notify client and server stdout that new client connected
+                self.notify_connected_client(new_client_username, channel.name, new_client_socket)
+
+                # TODO: SEND UDPATED QUEUE MESSAGE TO QUEUE CLIENTS
+                users_ahead = channel.queue.qsize() - 1
+
 
 
         # TODO: see if any client needs to be added from queue
+
+    def notify_connected_client(self, username, channel_name, socket):
+        print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
+
+        message = f"[Server Message] You have joined the channel \"{channel_name}\"."
+        socket.sendall(message.encode())
         
     def main(self):
         listening_socket = self.load_config()
