@@ -84,7 +84,7 @@ def main():
     if re.match(username_error_message, response):
         exit(EXIT_CODES.DUPLICATE_USERNAME_ERROR.value)
 
-    response = sock.recv(BUFSIZE).decode().strip() # server response - either joined channel or in queue
+    response = sock.recv(BUFSIZE).decode().strip() # server response - either you have joined channel or in queue
     print(response, file=sys.stdout)
     sys.stdout.flush()
 

@@ -129,25 +129,20 @@ class Server:
 
     # Create a new thread for each client
     def handle_channel(self, channel):
-        # TODO: muted clients, afk timer, counter thing from given code?
+        # TODO: muted clients, counter thing from given code?
         # TODO: join threads when finished? 
         # TODO: remember to close sockets for clients
         while True: 
             client_socket, client_address = channel.socket.accept()
-            client_thread = Thread(target=self.handle_client, args=(channel, client_socket, client_address))
+            client_thread = Thread(target=self.handle_client, args=(channel, client_socket)) # removed client_address command
             client_thread.start() 
 
-    def handle_client(self, channel, client_socket, client_address):
+    def handle_client(self, channel, client_socket): # removed client_address arg
         client_username = client_socket.recv(BUFSIZE).decode().strip() # get client username, sent automatically by client after connection
-        
+
         # check username not already in channel
         with counter_lock:
-            if client_username in channel.connected_clients: # duplicate username in connected list
-                duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}."
-                client_socket.sendall(duplicate_username_message.encode())  
-                client_socket.close()
-                return
-            elif client_username in channel.queue: # duplicate username in queue
+            if client_username in channel.connected_clients or client_username in channel.queue: # duplicate username in connected list or queue
                 duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}."
                 client_socket.sendall(duplicate_username_message.encode())  
                 client_socket.close()
@@ -156,41 +151,60 @@ class Server:
                 connected_message = f"Welcome to chatclient, {client_username}."
                 client_socket.sendall(connected_message.encode())
 
-                connected = False # tracks whether client connected (T) or in queue (F)
                 # Check capacity and queue/connect client
                 if len(channel.connected_clients) == channel.capacity: # Maximum capacity, queue client
                     channel.queue.put(client_username)
                     channel.queue_sockets[client_username] = client_socket
                     users_ahead = channel.queue.qsize() - 1
-                    print(f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you.", file=sys.stdout)
+
+                    # Notify client
+                    message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
+                    client_socket.sendall(message.encode())
+
                 else: # Connect client
                     channel.connected_clients.append(client_username)
                     channel.client_sockets[client_username] = client_socket
                     print(f"[Server Message] {client_username} has joined the channel \"{channel.name}\".", file=sys.stdout)
-                    connected = True
                 
+                    # notify client
+                    message = f"[Server Message] You have joined the channel \"{channel.name}\"."
+                    client_socket.sendall(message.encode())
+
                 sys.stdout.flush()
 
-        self.handle_communication(channel, client_username, connected)
+        self.handle_communication(channel, client_username)
 
-    def handle_communication(self, channel, client_username, connected):
+    def handle_communication(self, channel, client_username):
         # Continuously listen and send data to other clients in channel
         
-        # Get client socket
-        sock = channel.client_sockets[client_username]
-        if not connected:
-            sock = channel.queue_sockets[client_username]
+        # Get client socket TODO: need to constantly check in connected list
+        sock = None
+        with counter_lock:
+            if client_username in channel.connected_clients: # connected
+                sock = channel.client_sockets[client_username]
+            else: # queued
+                sock = channel.queue_sockets[client_username]
 
-        while not connected: # if and while in queue, filter certain commands
+        while True: # Queue Client 
+            with counter_lock:
+                if client_username not in channel.queue: # if left queue, break out of this loop 
+                    break
             data = sock.recv(BUFSIZE)
             if not data:
+                # TODO: do something
                 break
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
+
+        # Check if disconnected
+        with counter_lock:
+            if client_username not in channel.connected_clients: 
+                # TODO: call some disconnect function
+                return  
             
-        while True: # connected
+        while True: # Connected Client
             # Start timer for afk
-            timer = Timer(self.afk_time, self.disconnect, args=(channel, client_username))
+            timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
             data = sock.recv(BUFSIZE)
             timer.cancel() # Cancel timer since data received
@@ -199,19 +213,40 @@ class Server:
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
 
-        self.disconnect(channel, client_username) # Disconnected since broken from loops
+        self.timeout(channel, client_username) # Disconnected since broken from loops
 
-    def disconnect(self, channel, client_username):
-        # what happens when client times out, add some arguments, change queue, connected client list etc.
+    def timeout(self, channel, client_username):
         
-        # TODO: send message to all other connected clients
-        # TODO: send message to stdout
-        # TODO: send messaage to client about to be disconnected
-        # TODO: remove client from list and from socket dict
+        afk_message = f"[Server Message] {client_username} went AFK in channel \"{channel.name}\"."
+        
+        # Send message to chatserver stdout
+        print(afk_message, file=sys.stdout)
+        sys.stdout.flush()
+
+        with counter_lock:
+            # Send message to connected clients (including client about to be disconnected)
+            for client in channel.connected_clients: 
+                socket = channel.client_sockets[client] # get socket for each client
+                socket.sendall(afk_message.encode()) # send
+
+            # Remove client from list and from socket dict
+            channel.connected_clients.remove(client_username) # remove from connected clients list
+            channel.client_sockets.pop(client_username) # remove from connected sockets list
+
+            # Promote any clients from queue
+            if not channel.queue.isEmpty(): # If there is client in queue
+                new_client_username = channel.queue.dequeue() # remove from queue
+                new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
+                channel.queue_sockets.pop(new_client_username) # remove from dict
+
+                # add to connected list
+                channel.connected_clients.append(new_client_username)
+                channel.client_sockets[new_client_username] = new_client_socket
+
+
+
         # TODO: see if any client needs to be added from queue
         
-        pass
-
     def main(self):
         listening_socket = self.load_config()
         self.process_connections()  
