@@ -211,10 +211,9 @@ class Server:
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
 
-        self.timeout(channel, client_username) # Disconnected since broken from loops
+        # TODO: DISCONNECTION
 
     def timeout(self, channel, client_username):
-        
         afk_message = f"[Server Message] {client_username} went AFK in channel \"{channel.name}\"."
         
         # Send message to chatserver stdout
@@ -241,15 +240,17 @@ class Server:
                 channel.connected_clients.append(new_client_username)
                 channel.client_sockets[new_client_username] = new_client_socket
 
-                # Notify client and server stdout that new client connected
+                # Notify client and server stdout that new client joined channel
                 self.notify_connected_client(new_client_username, channel.name, new_client_socket)
 
-                # TODO: SEND UDPATED QUEUE MESSAGE TO QUEUE CLIENTS
-                users_ahead = channel.queue.qsize() - 1
-
-
-
-        # TODO: see if any client needs to be added from queue
+                # Update user ahead message to queue clients
+                users_ahead = 0 
+                queue_clients = list(channel.queue)
+                for client in queue_clients:
+                    sock = channel.queue_sockets[client] # get socket
+                    message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
+                    sock.sendall(message.encode())
+                    users_ahead += 1 # increment number of users ahead
 
     def notify_connected_client(self, username, channel_name, socket):
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
