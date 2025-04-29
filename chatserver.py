@@ -48,9 +48,9 @@ class Server:
                 if not line: # break when EOF reached
                     break
 
-                if '\r\n' in line or "\^M\n" in line: # '\r\n' in line or '^M' in line: # check for trailing characters e.g. ^M #  
-                    print("Error: Invalid configuration file.", file=sys.stderr)
-                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
+                # if '\r\n' in line or "\^M\n" in line: # '\r\n' in line or '^M' in line: # check for trailing characters e.g. ^M #  
+                #     print("Error: Invalid configuration file.", file=sys.stderr)
+                #     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
                 line = line.strip() # remove leading or trailing whitespace
                 channel = line.split(" ")
