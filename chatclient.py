@@ -51,12 +51,13 @@ def handle_stdin(sock):
             print(data.decode().strip(), file=sys.stdout)
             sys.stdout.flush()
 
-def handle_socket(sock, client_username):
+def handle_socket(sock):
     while True: 
+        print("here")
         data = sock.recv(BUFSIZE)
-        afk_message = rf"[Server Message] {client_username} went AFK in channel \".*\"."
-        if re.match(afk_message, data):
-            exit(8) # AFK, clean this up
+        # afk_message = rf"[Server Message] {client_username} went AFK in channel \".*\"."
+        # if re.match(afk_message, data):
+        #     exit(8) # AFK, clean this up
         if not data:
             exit(8) # AFK, clean this up 
         print(data.decode().strip(), file=sys.stdout)
@@ -101,7 +102,7 @@ def main():
     stdin_thread.start()
 
     # create thread to read from network socket from server
-    socket_thread = Thread(target=handle_socket, args=(sock, client_username))
+    socket_thread = Thread(target=handle_socket, args=(sock))
     socket_thread.start()  
 
     # wait for threads to finish
