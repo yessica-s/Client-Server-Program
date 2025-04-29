@@ -224,9 +224,11 @@ class Server:
         self.disconnect(channel, client_username)
 
     def disconnect(self, channel, client_username):
+        print(f"DISCONNECTING {client_username}")
         with counter_lock:
             # If client disconnected from connected list
             if client_username in channel.connected_clients:
+                print("here 1")
                 # Remove client from list and from socket dict
                 channel.connected_clients.remove(client_username) # remove from connected clients list
                 socket = channel.client_sockets[client_username] # get socket for each client
@@ -249,6 +251,7 @@ class Server:
 
             # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
             if len(channel.connected_clients) < channel.capacity and not channel.queue.empty(): # If there is client in queue
+                print("here 2")
                 new_client_username = channel.queue.get() # remove from queue
                 new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
                 channel.queue_sockets.pop(new_client_username) # remove from dict
@@ -295,6 +298,7 @@ class Server:
         return # disconnect and socket and thread close handled in disconnect function
 
     def notify_connected_client(self, username, channel_name, socket):
+        print("notifying connected client")
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
 
         message = f"[Server Message] You have joined the channel \"{channel_name}\"."
