@@ -48,7 +48,7 @@ class Server:
                 if not line: # break when EOF reached
                     break
 
-                if line != line.strip(): # check for trailing characters e.g. ^M
+                if '\r' in line or '\r\n' in line: # check for trailing characters e.g. ^M
                     print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 

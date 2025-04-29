@@ -55,8 +55,7 @@ def handle_socket(sock):
     while True: 
         data = sock.recv(BUFSIZE)
         if not data:
-            exit(8) # AFK
-            break
+            exit(8) # AFK, clean this up 
         print(data.decode().strip(), file=sys.stdout)
         sys.stdout.flush()
 
