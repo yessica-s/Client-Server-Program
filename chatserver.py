@@ -212,6 +212,7 @@ class Server:
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
             if channel.disconnected_clients.get(client_username) == True: 
+                print("lolz")
                 break # client to be disconnected - break and proceed to disconnect function
             data = sock.recv(BUFSIZE)
             timer.cancel() # Cancel timer since data received
@@ -220,6 +221,7 @@ class Server:
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
 
+        print("calling")
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
 
@@ -298,7 +300,6 @@ class Server:
         return # disconnect and socket and thread close handled in disconnect function
 
     def notify_connected_client(self, username, channel_name, socket):
-        print("notifying connected client")
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
 
         message = f"[Server Message] You have joined the channel \"{channel_name}\"."
