@@ -29,6 +29,8 @@ class Channel:
         self.queue = Queue() # clients waiting to join
         self.queue_sockets = {} # client -> socket
 
+        self.disconnected_clients = {} # stores client -> True for clients that are disconnected
+
 class Server: 
     def __init__(self, afk_time, config_file): 
         self.afk_time = afk_time
@@ -129,9 +131,6 @@ class Server:
 
     # Create a new thread for each client
     def handle_channel(self, channel):
-        # TODO: muted clients
-        # TODO: join threads when finished? 
-        # TODO: remember to close sockets for clients
         while True: 
             client_socket, client_address = channel.socket.accept()
             client_thread = Thread(target=self.handle_client, args=(channel, client_socket)) # removed client_address command
@@ -174,6 +173,11 @@ class Server:
 
     def handle_communication(self, channel, client_username):
         # Continuously listen and send data to other clients in channel
+
+        # TODO: any time client disconnects:
+        # - from queue: 
+        # - from connected: call message method and then disconnect method
+        # DONE - from AFK: call timeout method and then disconnect method
         
         # Get client socket
         sock = None
@@ -183,9 +187,6 @@ class Server:
             else: # queued
                 sock = channel.queue_sockets[client_username]
 
-        # TODO: IF CLIENT IN FRONT OF QUEUE LEAVES: SEND qaiting message 
-        # TODO: ALREADY HANDLED IN AFK SCENARIO BUT OTHERWISE WHERE SHOULD THIS BE HANDLED
-
         while True: # Queue Client 
             with counter_lock:
                 queue_clients = list(channel.queue)
@@ -193,21 +194,23 @@ class Server:
                     break
             data = sock.recv(BUFSIZE)
             if not data:
-                # TODO: do something
+                # TODO: do something, client disconnected from queue? 
                 break
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
 
-        # Check if disconnected
+        # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
             if client_username not in channel.connected_clients: 
-                # TODO: call some disconnect function
+                # TODO: client disconnected from queue?
                 return  
             
         while True: # Connected Client
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
+            if channel.disconnected_clients.get(client_username) == True: 
+                break # client to be disconnected - break and proceed to disconnect function
             data = sock.recv(BUFSIZE)
             timer.cancel() # Cancel timer since data received
             if not data:
@@ -215,30 +218,35 @@ class Server:
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
 
-        # TODO: DISCONNECTION
+        # handle disconnection, update queue, etc.
+        self.disconnect(channel, client_username)
 
-    def timeout(self, channel, client_username):
-        afk_message = f"[Server Message] {client_username} went AFK in channel \"{channel.name}\"."
-        
-        # Send message to chatserver stdout
-        print(afk_message, file=sys.stdout)
-        sys.stdout.flush()
-
+    def disconnect(self, channel, client_username):
         with counter_lock:
-            # Send message to connected clients (including client about to be disconnected)
-            for client in channel.connected_clients: 
-                socket = channel.client_sockets[client] # get socket for each client
-                socket.sendall(afk_message.encode()) # send
+            # If client disconnected from connected list
+            if client_username in channel.connected_clients:
+                # Remove client from list and from socket dict
+                channel.connected_clients.remove(client_username) # remove from connected clients list
+                socket = channel.client_sockets[client_username] # get socket for each client
+                channel.client_sockets.pop(client_username) # remove from connected sockets list
+                socket.close() # close socket
+            else: # Client disconnected from queue
+                # remove from queue by dequeueing and enqueing all except removed client
+                queued_clients = []
+                while not channel.queue.empty():
+                    current = channel.queue.get()
+                    if not current == client_username:
+                        queued_clients.append(current)
+                for item in queued_clients: # re-enqueue remaining clients in order
+                    channel.queue.put(item)
 
-                if client == client_username: # if disconnected client, close its socket
-                    socket.close() 
+                # channel.queue.queue.remove(client_username) # remove from queue
+                socket = channel.queue_sockets[client_username]
+                channel.queue_sockets.pop(client_username) # remove from queue sockets
+                socket.close() # close socket
 
-            # Remove client from list and from socket dict
-            channel.connected_clients.remove(client_username) # remove from connected clients list
-            channel.client_sockets.pop(client_username) # remove from connected sockets list
-
-            # Promote any clients from queue
-            if not channel.queue.empty(): # If there is client in queue
+            # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
+            if len(channel.connected_clients) < channel.capacity and not channel.queue.empty(): # If there is client in queue
                 new_client_username = channel.queue.get() # remove from queue
                 new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
                 channel.queue_sockets.pop(new_client_username) # remove from dict
@@ -252,15 +260,37 @@ class Server:
 
                 # Update user ahead message to queue clients
                 users_ahead = 0 
-                queue_clients = list(channel.queue)
-                for client in queue_clients:
-                    sock = channel.queue_sockets[client] # get socket
+
+                queued_clients = []
+                while not channel.queue.empty():
+                    current = channel.queue.get()
+                    queued_clients.append(current)
+
+                    sock = channel.queue_sockets[current] # get socket
                     message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
                     sock.sendall(message.encode())
+                    
                     users_ahead += 1 # increment number of users ahead
 
+                for item in queued_clients: # re-enqueue remaining clients in order
+                    channel.queue.put(item)
 
-        # TODO: return? what happens after timeout? close client thread?
+    def timeout(self, channel, client_username):
+        afk_message = f"[Server Message] {client_username} went AFK in channel \"{channel.name}\"."
+        
+        # Send message to chatserver stdout
+        print(afk_message, file=sys.stdout)
+        sys.stdout.flush()
+
+        with counter_lock:
+            # Send message to connected clients (including client about to be disconnected)
+            for client in channel.connected_clients: 
+                socket = channel.client_sockets[client] # get socket for each client
+                socket.sendall(afk_message.encode()) # send   
+
+            channel.disconnected_clients[client_username] = True # assign it as disconnected so disconnect function called in handle_comms  
+        
+        return # disconnect and socket and thread close handled in disconnect function
 
     def notify_connected_client(self, username, channel_name, socket):
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
