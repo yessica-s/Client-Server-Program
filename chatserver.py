@@ -141,7 +141,7 @@ class Server:
 
         # check username not already in channel
         with counter_lock:
-            if client_username in channel.connected_clients or client_username in channel.queue: # duplicate username in connected list or queue
+            if client_username in channel.connected_clients or channel.queue_sockets.get(client_username) is not None: # client_username in channel.queue: # duplicate username in connected list or queue
                 duplicate_username_message = f"[Server Message] Channel \"{channel.name}\" already has user {client_username}."
                 client_socket.sendall(duplicate_username_message.encode())  
                 client_socket.close()
