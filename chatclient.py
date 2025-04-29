@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from socket import *
 from sys import stdout, stdin, argv, exit
 import re
@@ -11,6 +11,7 @@ class EXIT_CODES(Enum):
     USAGE_ERROR = 3
     PORT_CHECK_ERROR = 7
     DUPLICATE_USERNAME_ERROR = 2
+    DISCONNECT_ERROR = 8
 
 def usage_checking():
     if len(sys.argv) < 3 or len(sys.argv) > 3:  # Not enough/too many arguments
@@ -51,16 +52,20 @@ def handle_stdin(sock):
             print(data.decode().strip(), file=sys.stdout)
             sys.stdout.flush()
 
-def handle_socket(sock):
+def handle_socket(sock, client_username):
     while True: 
-        print("here")
-        data = sock.recv(BUFSIZE)
-        # afk_message = rf"[Server Message] {client_username} went AFK in channel \".*\"."
-        # if re.match(afk_message, data):
-        #     exit(8) # AFK, clean this up
+        data = sock.recv(BUFSIZE).decode().strip()
+
+        afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
+        if re.match(afk_message, data):
+            print(data, file=sys.stdout)
+            os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+
         if not data:
-            exit(8) # AFK, clean this up 
-        print(data.decode().strip(), file=sys.stdout)
+            print("Error: server connection closed.")
+            os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+            
+        print(data, file=sys.stdout)
         sys.stdout.flush()
 
 def main():
@@ -84,6 +89,7 @@ def main():
     sys.stdout.flush()
     
     # if got username error, also exit program status 2
+    # TODO: check this message is ok
     username_error_message = rf"^\[Server Message\] Channel \".*\" already has user {client_username}\.$"
     if re.match(username_error_message, response):
         exit(EXIT_CODES.DUPLICATE_USERNAME_ERROR.value)
@@ -102,7 +108,7 @@ def main():
     stdin_thread.start()
 
     # create thread to read from network socket from server
-    socket_thread = Thread(target=handle_socket, args=(sock, ))
+    socket_thread = Thread(target=handle_socket, args=(sock, client_username))
     socket_thread.start()  
 
     # wait for threads to finish

@@ -29,7 +29,7 @@ class Channel:
         self.queue = Queue() # clients waiting to join
         self.queue_sockets = {} # client -> socket
 
-        self.disconnected_clients = {} # stores client -> True for clients that are disconnected
+        self.disconnected_clients = [] # stores client -> True for clients that are disconnected
 
 class Server: 
     def __init__(self, afk_time, config_file): 
@@ -174,6 +174,7 @@ class Server:
                 sys.stdout.flush()
 
         self.handle_communication(channel, client_username)
+        return
 
     def handle_communication(self, channel, client_username):
         # Continuously listen and send data to other clients in channel
@@ -215,7 +216,7 @@ class Server:
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
-            if channel.disconnected_clients.get(client_username) == True: 
+            if client_username in channel.disconnected_clients: 
                 break # client to be disconnected - break and proceed to disconnect function
             data = sock.recv(BUFSIZE)
             timer.cancel() # Cancel timer since data received
@@ -226,9 +227,13 @@ class Server:
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
+        return
 
     def disconnect(self, channel, client_username):
+        print(f"[Server Message] {client_username} has left the channel.")
         with counter_lock:
+            # Remove from disconnected client list in case later on another client with same name disconnects
+            channel.disconnected_clients.remove(client_username)
             # If client disconnected from connected list
             if client_username in channel.connected_clients:
                 # Remove client from list and from socket dict
@@ -294,7 +299,7 @@ class Server:
                 socket = channel.client_sockets[client] # get socket for each client
                 socket.sendall(afk_message.encode()) # send   
 
-            channel.disconnected_clients[client_username] = True # assign it as disconnected so disconnect function called in handle_comms  
+            channel.disconnected_clients.append(client_username) # assign it as disconnected so disconnect function called in handle_comms  
         
         return # disconnect and socket and thread close handled in disconnect function
 
