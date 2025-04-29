@@ -102,7 +102,7 @@ def main():
     stdin_thread.start()
 
     # create thread to read from network socket from server
-    socket_thread = Thread(target=handle_socket, args=(sock))
+    socket_thread = Thread(target=handle_socket, args=(sock, ))
     socket_thread.start()  
 
     # wait for threads to finish
