@@ -192,7 +192,7 @@ class Server:
                 # queue_clients = list(channel.queue)
                 # if client_username not in queue_clients: # if left queue, break out of this loop 
                 #     break
-                if channel.queue_sockets[client_username] is None: # left queue
+                if channel.queue_sockets.get(client_username) is None: # left queue
                     break
             data = sock.recv(BUFSIZE)
             if not data:
