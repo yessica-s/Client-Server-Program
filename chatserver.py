@@ -48,6 +48,10 @@ class Server:
                 if not line: # break when EOF reached
                     break
 
+                if line != line.strip(): # check for trailing characters e.g. ^M
+                    print("Error: Invalid configuration file.", file=sys.stderr)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
+
                 line = line.strip() # remove leading or trailing whitespace
                 channel = line.split(" ")
 
@@ -211,8 +215,8 @@ class Server:
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
-            # if channel.disconnected_clients.get(client_username) == True: 
-            #     break # client to be disconnected - break and proceed to disconnect function
+            if channel.disconnected_clients.get(client_username) == True: 
+                break # client to be disconnected - break and proceed to disconnect function
             data = sock.recv(BUFSIZE)
             timer.cancel() # Cancel timer since data received
             if not data:
@@ -220,16 +224,13 @@ class Server:
             # TODO: do stuff with data
             # print(data.decode().strip(), file=sys.stdout)
 
-        print("calling")
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
 
     def disconnect(self, channel, client_username):
-        print(f"DISCONNECTING {client_username}")
         with counter_lock:
             # If client disconnected from connected list
             if client_username in channel.connected_clients:
-                print("here 1")
                 # Remove client from list and from socket dict
                 channel.connected_clients.remove(client_username) # remove from connected clients list
                 socket = channel.client_sockets[client_username] # get socket for each client
@@ -252,7 +253,6 @@ class Server:
 
             # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
             if len(channel.connected_clients) < channel.capacity and not channel.queue.empty(): # If there is client in queue
-                print("here 2")
                 new_client_username = channel.queue.get() # remove from queue
                 new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
                 channel.queue_sockets.pop(new_client_username) # remove from dict
@@ -296,8 +296,7 @@ class Server:
 
             channel.disconnected_clients[client_username] = True # assign it as disconnected so disconnect function called in handle_comms  
         
-        self.disconnect(channel, client_username)
-        # return # disconnect and socket and thread close handled in disconnect function
+        return # disconnect and socket and thread close handled in disconnect function
 
     def notify_connected_client(self, username, channel_name, socket):
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
