@@ -22,10 +22,22 @@ def usage_checking():
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
 
-    # TODO: NOT SURE IF THIS SHOULD BE DONE HERE?? SINCE PORT NUUMBER NOT CHECKED AS INT YET
-    if int(sys.argv[1]) < 1024 or int(sys.argv[1]) > 65535:  # port number out of range
+    # check lcient username space
+    if sys.argv[1] == " " or sys.argv[2] == " ":  # empty strings
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
+
+    # check port value is integer
+    try:
+        int(sys.argv[1])
+    except ValueError:
+        print(f"Error: Unable to connect to port {sys.argv[1]}.", file=sys.stderr)
+        exit(EXIT_CODES.PORT_CHECK_ERROR.value)
+
+    # check port within ranges
+    if int(sys.argv[1]) < 1024 or int(sys.argv[1]) > 65535:  # port number out of range
+        print(f"Error: Unable to connect to port {sys.argv[1]}.", file=sys.stderr)
+        exit(EXIT_CODES.PORT_CHECK_ERROR.value)
 
     return
 
