@@ -22,10 +22,12 @@ def usage_checking():
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
 
-    # check lcient username space
+    # check client username is space
     if sys.argv[1] == " " or sys.argv[2] == " ":  # empty strings
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
+
+    # TODO: check client username contains space
 
     # check port value is integer
     try:

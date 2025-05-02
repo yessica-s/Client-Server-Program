@@ -40,7 +40,10 @@ class Server:
         self.channel_ports = []
 
     def load_config(self): # load the config file and check invalid lines
-        listening_socket = None
+        names = []
+        ports = []
+        capacities = []
+        listening_sockets = []
         with open(self.config_file, 'r') as file: 
             while True:
                 line = file.readline()
@@ -99,21 +102,38 @@ class Server:
                     print("Error: Invalid configuration file.", file=sys.stderr)
                     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
-                listening_socket = self.start_server(channel_port)
+                names.append(channel_name)
+                ports.append(channel_port)
+                capacities.append(channel_capacity)
+                # listening_socket = self.start_server(channel_port)
 
-                new_channel = Channel(channel_name, channel_port, channel_capacity, listening_socket)
-                self.channels.append(new_channel)
-                self.channel_names.append(channel_name)
-                self.channel_ports.append(channel_port)
+                # new_channel = Channel(channel_name, channel_port, channel_capacity, listening_socket)
+                # self.channels.append(new_channel)
+                # self.channel_names.append(channel_name)
+                # self.channel_ports.append(channel_port)
 
-                print(f"Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.", file=sys.stdout)
-                sys.stdout.flush()
+                # print(f"Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.", file=sys.stdout)
+                # sys.stdout.flush()
 
-            print("Welcome to chatserver.", file=sys.stdout)
+        length = len(names)
+
+        for i in range(0, length):
+            listening_socket = self.start_server(ports[i])
+
+            new_channel = Channel(names[i], ports[i], capacities[i], listening_socket)
+            self.channels.append(new_channel)
+            self.channel_names.append(names[i])
+            self.channel_ports.append(ports[i])
+
+            print(f"Channel \"{names[i]}\" is created on port {ports[i]}, with a capacity of {capacities[i]}.", file=sys.stdout)
             sys.stdout.flush()
         
+
+        print("Welcome to chatserver.", file=sys.stdout)
+        sys.stdout.flush()
+        
         file.close()
-        return listening_socket
+        return
 
     def start_server(self, port):
         listening_socket = socket(AF_INET, SOCK_STREAM)
@@ -319,7 +339,7 @@ class Server:
         socket.sendall(message.encode())
         
     def main(self):
-        listening_socket = self.load_config()
+        self.load_config()
         self.process_connections()  
 
 def usage_checking(arr): 
