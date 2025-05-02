@@ -1,3 +1,4 @@
+import os
 import sys, re
 from socket import *
 from threading import Lock, Thread, Timer, current_thread
@@ -43,7 +44,12 @@ class Server:
         names = []
         ports = []
         capacities = []
-        listening_sockets = []
+
+        # TODO: check if file empty
+        # if os.path.getsize(self.config_file) == 0:
+        #     print("Error: Invalid configuration file.", file=sys.stderr)
+        #     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
+
         with open(self.config_file, 'r') as file: 
             while True:
                 line = file.readline()
@@ -51,6 +57,7 @@ class Server:
                 if not line: # break when EOF reached
                     break
 
+                # TODO: special symbols at end
                 # if '\r\n' in line or "\^M\n" in line: # '\r\n' in line or '^M' in line: # check for trailing characters e.g. ^M #  
                 #     print("Error: Invalid configuration file.", file=sys.stderr)
                 #     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
@@ -105,16 +112,8 @@ class Server:
                 names.append(channel_name)
                 ports.append(channel_port)
                 capacities.append(channel_capacity)
-                # listening_socket = self.start_server(channel_port)
 
-                # new_channel = Channel(channel_name, channel_port, channel_capacity, listening_socket)
-                # self.channels.append(new_channel)
-                # self.channel_names.append(channel_name)
-                # self.channel_ports.append(channel_port)
-
-                # print(f"Channel \"{channel_name}\" is created on port {channel_port}, with a capacity of {channel_capacity}.", file=sys.stdout)
-                # sys.stdout.flush()
-
+        # check each port is connectable and open a socket for it
         length = len(names)
 
         for i in range(0, length):
@@ -128,7 +127,6 @@ class Server:
             print(f"Channel \"{names[i]}\" is created on port {ports[i]}, with a capacity of {capacities[i]}.", file=sys.stdout)
             sys.stdout.flush()
         
-
         print("Welcome to chatserver.", file=sys.stdout)
         sys.stdout.flush()
         
@@ -346,11 +344,17 @@ def usage_checking(arr):
     config_file = None
     afk_time = 100 # default 100
 
-    # TODO: need to check if values for anything are empty strings!!!, also for empty config file checked in server
+    # TODO: need to check if values for anything are empty strings!!!
 
     if len(sys.argv) not in (2,3): # too little/ too many arguments
         print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
+
+    # Check empty arguments
+    for arg in sys.argv:
+        if arg == "" or arg == " ":
+            print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
+            exit(EXIT_CODES.USAGE_ERROR.value)
 
     config_file = sys.argv[1] # default as only argument if afk_time not present
 
