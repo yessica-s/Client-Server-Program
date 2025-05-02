@@ -29,7 +29,7 @@ class Channel:
         self.queue = Queue() # clients waiting to join
         self.queue_sockets = {} # client -> socket
 
-        self.disconnected_clients = [] # stores client -> True for clients that are disconnected
+        self.disconnected_clients = [] # stores client -> True for clients that should be disconnected after afk timeout
 
 class Server: 
     def __init__(self, afk_time, config_file): 
@@ -180,7 +180,7 @@ class Server:
         # Continuously listen and send data to other clients in channel
 
         # TODO: any time client disconnects:
-        # - from queue: 
+        # - from queue: check after it leaves queue
         # - from connected: call message method and then disconnect method
         # DONE - from AFK: call timeout method and then disconnect method
         
@@ -194,36 +194,44 @@ class Server:
 
         while True: # Queue Client 
             with counter_lock:
-                # queue_clients = list(channel.queue)
-                # if client_username not in queue_clients: # if left queue, break out of this loop 
-                #     break
-                if channel.queue_sockets.get(client_username) is None: # left queue
+                if channel.queue_sockets.get(client_username) is None: # left queue TODO: redundant because how would it be removed
                     break
             data = sock.recv(BUFSIZE)
-            if not data:
-                # TODO: do something, client disconnected from queue? 
-                break
-            # TODO: do stuff with data
-            # print(data.decode().strip(), file=sys.stdout)
+            if not data: # client disconnected
+                self.disconnect(channel, client_username) 
+                return
+            # TODO: accept queue commands
 
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
             if client_username not in channel.connected_clients: 
-                # TODO: client disconnected from queue?
+                self.disconnect(channel, client_username)
                 return  
             
         while True: # Connected Client
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
-            if client_username in channel.disconnected_clients: 
-                break # client to be disconnected - break and proceed to disconnect function
+
+            if client_username in channel.disconnected_clients: # client to be disconnected due to AFK
+                self.disconnect(channel, client_username)
+                return
+
             data = sock.recv(BUFSIZE)
-            timer.cancel() # Cancel timer since data received
+            timer.cancel() # Cancel AFK timer since data received
             if not data:
                 break
-            # TODO: do stuff with data
-            # print(data.decode().strip(), file=sys.stdout)
+
+            message = data.decode().strip()
+            start_of_message = f"[{client_username}]"
+            message_to_send = start_of_message + " " + message
+            # send to all clients in channel
+            for other_client in channel.connected_clients: 
+                current_socket = channel.client_sockets.get(other_client)
+                current_socket.sendall(message_to_send.encode())
+
+            # print to stdout of server
+            print(message_to_send, file=sys.stdout)
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
@@ -233,7 +241,8 @@ class Server:
         print(f"[Server Message] {client_username} has left the channel.")
         with counter_lock:
             # Remove from disconnected client list in case later on another client with same name disconnects
-            channel.disconnected_clients.remove(client_username)
+            if client_username in channel.disconnected_clients:
+                channel.disconnected_clients.remove(client_username)
             # If client disconnected from connected list
             if client_username in channel.connected_clients:
                 # Remove client from list and from socket dict
