@@ -46,9 +46,9 @@ class Server:
         capacities = []
 
         # TODO: check if file empty
-        # if os.path.getsize(self.config_file) == 0:
-        #     print("Error: Invalid configuration file.", file=sys.stderr)
-        #     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
+        if os.path.getsize(self.config_file) == 0:
+            print("Error: Invalid configuration file.", file=sys.stderr)
+            exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
         with open(self.config_file, 'r') as file: 
             while True:
@@ -124,7 +124,9 @@ class Server:
             self.channel_names.append(names[i])
             self.channel_ports.append(ports[i])
 
-            print(f"Channel \"{names[i]}\" is created on port {ports[i]}, with a capacity of {capacities[i]}.", file=sys.stdout)
+        # print that channels created successfully
+        for i in range(0, length):
+            print(f"Channel \"{self.channels[i].name}\" is created on port {self.channels[i].port}, with a capacity of {self.channels[i].capacity}.", file=sys.stdout)
             sys.stdout.flush()
         
         print("Welcome to chatserver.", file=sys.stdout)
@@ -139,7 +141,8 @@ class Server:
         try:
             listening_socket.bind(('', port))
         except Exception:
-            print(f"Error: unable to listen on port {port}.", file=sys.stderr)
+            print(f"Error: unable to listen on port {port}.", file=sys.stderr, flush=True)
+            
             exit(EXIT_CODES.PORT_ERROR.value)
         listening_socket.listen(5)
         
@@ -257,8 +260,17 @@ class Server:
         return
 
     def disconnect(self, channel, client_username):
-        print(f"[Server Message] {client_username} has left the channel.")
+        message = f"[Server Message] {client_username} has left the channel."
+        print(message)
+
+        sys.stdout.flush()
         with counter_lock:
+
+            # send to all clients in channel
+            for other_client in channel.connected_clients: 
+                current_socket = channel.client_sockets.get(other_client)
+                current_socket.sendall(message.encode())
+
             # Remove from disconnected client list in case later on another client with same name disconnects
             if client_username in channel.disconnected_clients:
                 channel.disconnected_clients.remove(client_username)
@@ -333,6 +345,7 @@ class Server:
 
     def notify_connected_client(self, username, channel_name, socket):
         print(f"[Server Message] {username} has joined the channel \"{channel_name}\".", file=sys.stdout)
+        sys.stdout.flush()
 
         message = f"[Server Message] You have joined the channel \"{channel_name}\"."
         socket.sendall(message.encode())
