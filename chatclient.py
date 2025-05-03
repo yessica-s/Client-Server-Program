@@ -62,7 +62,7 @@ def handle_stdin(sock):
         try: 
             for line in stdin:
                 commands = line.split(" ")
-                if commands[0] == "/quit":
+                if commands[0] == "/quit" or commands[0] == "/quit\n":
                     if len(commands) > 1: # extra arguments
                         print("[Server Message] Usage: /quit", file=sys.stdout)
                         sys.stdout.flush()
@@ -71,7 +71,6 @@ def handle_stdin(sock):
                         sock.send(line.encode())
                         sock.close()
                         sys.exit(0)
-                        break
                 else: 
                     sock.send(line.encode())
         except KeyboardInterrupt:
@@ -92,8 +91,10 @@ def handle_socket(sock, client_username):
 
             if not data:
                 if not quit:
-                    print("Error: server connection closed.")
-                os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+                    print("Error: server connection closed.", file=sys.stderr)
+                    os._exit(EXIT_CODES.DISCONNECT_ERROR.value)
+                else:
+                    os._exit(0)
                 
             print(data, file=sys.stdout)
             sys.stdout.flush()
