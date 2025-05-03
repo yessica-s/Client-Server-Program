@@ -45,7 +45,7 @@ class Server:
         ports = []
         capacities = []
 
-        # TODO: check if file empty
+        # Check if file empty
         if os.path.getsize(self.config_file) == 0:
             print("Error: Invalid configuration file.", file=sys.stderr)
             exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
@@ -221,7 +221,8 @@ class Server:
             if not data: # client disconnected
                 self.disconnect(channel, client_username) 
                 return
-            # TODO: accept queue commands
+
+        print("here")
 
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
@@ -230,15 +231,18 @@ class Server:
                 return  
             
         while True: # Connected Client
+            print("connected client now")
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
 
             if client_username in channel.disconnected_clients: # client to be disconnected due to AFK
+                print("disconnecting?")
                 self.disconnect(channel, client_username)
                 return
 
             data = sock.recv(BUFSIZE)
+            print("gotten data")
             timer.cancel() # Cancel AFK timer since data received
             if not data:
                 break

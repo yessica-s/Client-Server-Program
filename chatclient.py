@@ -60,6 +60,7 @@ def handle_stdin(sock):
         try: 
             for line in stdin:
                 sock.send(line.encode())
+                # I FEEL LIKE THE DATA RECEIVING SHOULD NOT BE HERE AT ALL LEGIT ONLY READING FROM STDIN AND SENDING
                 data = sock.recv(BUFSIZE)
                 if not data:
                     break
