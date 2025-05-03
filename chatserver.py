@@ -4,6 +4,7 @@ from socket import *
 from threading import Lock, Thread, Timer, current_thread
 from enum import Enum
 from queue import Queue
+import time
 
 class EXIT_CODES(Enum):
     CONFIG_FILE_ERROR = 5
@@ -221,28 +222,35 @@ class Server:
             if not data: # client disconnected
                 self.disconnect(channel, client_username) 
                 return
-
-        print("here")
-
+            
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
             if client_username not in channel.connected_clients: 
                 self.disconnect(channel, client_username)
                 return  
+
+        # for _ in range(10):  # Retry up to ~1 second
+        #     with counter_lock:
+        #         if client_username in channel.connected_clients:
+        #             break
+        #     time.sleep(0.1)
+        # else:
+        #     # Timed out waiting to be promoted
+        #     self.disconnect(channel, client_username)
+        #     return
+        
+        sock = channel.client_sockets[client_username]
             
         while True: # Connected Client
-            print("connected client now")
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
             timer.start()
 
             if client_username in channel.disconnected_clients: # client to be disconnected due to AFK
-                print("disconnecting?")
                 self.disconnect(channel, client_username)
                 return
 
             data = sock.recv(BUFSIZE)
-            print("gotten data")
             timer.cancel() # Cancel AFK timer since data received
             if not data:
                 break
