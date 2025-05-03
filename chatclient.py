@@ -7,6 +7,7 @@ from threading import Thread
 
 BUFSIZE = 1024
 sock = None
+quit = False
 
 class EXIT_CODES(Enum):
     USAGE_ERROR = 3
@@ -56,22 +57,30 @@ def start_connection(port):
         exit(EXIT_CODES.PORT_CHECK_ERROR.value)
 
 def handle_stdin(sock):
+    global quit
     while True: 
         try: 
             for line in stdin:
-                sock.send(line.encode())
-                # I FEEL LIKE THE DATA RECEIVING SHOULD NOT BE HERE AT ALL LEGIT ONLY READING FROM STDIN AND SENDING
-                # data = sock.recv(BUFSIZE)
-                # if not data:
-                #     break
-                # print(data.decode().strip(), file=sys.stdout)
-                # sys.stdout.flush()
+                commands = line.split(" ")
+                if commands[0] == "/quit":
+                    if len(commands) > 1: # extra arguments
+                        print("[Server Message] Usage: /quit", file=sys.stdout)
+                        sys.stdout.flush()
+                    else:
+                        quit = True
+                        sock.send(line.encode())
+                        sock.close()
+                        sys.exit(0)
+                        break
+                else: 
+                    sock.send(line.encode())
         except KeyboardInterrupt:
             sock.close()
             sys.exit(0)
             break
 
 def handle_socket(sock, client_username):
+    global quit
     while True: 
         try: 
             data = sock.recv(BUFSIZE).decode().strip()
@@ -82,7 +91,8 @@ def handle_socket(sock, client_username):
                 os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
 
             if not data:
-                print("Error: server connection closed.")
+                if not quit:
+                    print("Error: server connection closed.")
                 os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
                 
             print(data, file=sys.stdout)

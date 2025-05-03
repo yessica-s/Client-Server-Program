@@ -12,6 +12,8 @@ class EXIT_CODES(Enum):
     USAGE_ERROR = 4
     PORT_ERROR = 6
 
+quit = False
+quit_from_queue = False
 
 # Shared resource (counter to count the number of data packets received)
 counter = 0
@@ -201,6 +203,8 @@ class Server:
 
     def handle_communication(self, channel, client_username):
         # Continuously listen and send data to other clients in channel
+        global quit
+        global quit_from_queue
 
         # TODO: any time client disconnects:
         # - from queue: check after it leaves queue
@@ -222,17 +226,16 @@ class Server:
                 if channel.queue_sockets.get(client_username) is None: # left queue TODO: redundant because how would it be removed
                     break
             data = sock.recv(BUFSIZE)
+
             if not data: # client disconnected
                 self.disconnect(channel, client_username) 
                 return
-            # Don't block forever waiting for client data — check if there's anything to read
-            # ready_to_read, _, _ = select.select([sock], [], [], 0.1)
-            # if ready_to_read:
-                
-            #     data = sock.recv(BUFSIZE)
-            #     if not data:
-            #         self.disconnect(channel, client_username)
-            #         return
+            else:
+                data_decoded = data.decode().strip()
+                if data_decoded == "/quit":
+                    quit_from_queue = True
+                    self.disconnect(channel, client_username)
+                    return
             
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
@@ -245,17 +248,6 @@ class Server:
         # if anything sent since promoted to queue: print it out
         if data is not None:
             self.print_message(data, client_username, channel)
-            # message = data.decode().strip()
-            # start_of_message = f"[{client_username}]"
-            # message_to_send = start_of_message + " " + message
-            # # send to all clients in channel
-            # for other_client in channel.connected_clients: 
-            #     current_socket = channel.client_sockets.get(other_client)
-            #     current_socket.sendall(message_to_send.encode())
-
-            # # print to stdout of server
-            # print(message_to_send, file=sys.stdout)
-            # sys.stdout.flush()
 
         while True: # Connected Client
             # Start timer for afk
@@ -271,18 +263,14 @@ class Server:
             if not data:
                 break
 
-            self.print_message(data, client_username, channel)
-            # message = data.decode().strip()
-            # start_of_message = f"[{client_username}]"
-            # message_to_send = start_of_message + " " + message
-            # # send to all clients in channel
-            # for other_client in channel.connected_clients: 
-            #     current_socket = channel.client_sockets.get(other_client)
-            #     current_socket.sendall(message_to_send.encode())
+            data_decoded = data.decode().strip()
 
-            # # print to stdout of server
-            # print(message_to_send, file=sys.stdout)
-            # sys.stdout.flush()
+            if data_decoded == "/quit":
+                quit = True
+                self.disconnect(channel, client_username)
+                return
+
+            self.print_message(data, client_username, channel)
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
@@ -291,14 +279,25 @@ class Server:
     def disconnect(self, channel, client_username):
         message = f"[Server Message] {client_username} has left the channel."
         print(message)
-
         sys.stdout.flush()
-        with counter_lock:
 
+        global quit
+        global quit_from_queue
+
+        with counter_lock:
             # send to all clients in channel
-            for other_client in channel.connected_clients: 
-                current_socket = channel.client_sockets.get(other_client)
-                current_socket.sendall(message.encode())
+            if quit_from_queue: 
+                pass
+            elif quit:
+                for other_client in channel.connected_clients: 
+                    if other_client == client_username:
+                        continue
+                    current_socket = channel.client_sockets.get(other_client)
+                    current_socket.sendall(message.encode())
+            else:
+                for other_client in channel.connected_clients: 
+                    current_socket = channel.client_sockets.get(other_client)
+                    current_socket.sendall(message.encode())
 
             # Remove from disconnected client list in case later on another client with same name disconnects
             if client_username in channel.disconnected_clients:
