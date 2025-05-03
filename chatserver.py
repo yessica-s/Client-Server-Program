@@ -250,6 +250,7 @@ class Server:
 
             # print to stdout of server
             print(message_to_send, file=sys.stdout)
+            sys.stdout.flush()
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)

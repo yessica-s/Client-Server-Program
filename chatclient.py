@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, signal, time
 from socket import *
 from sys import stdout, stdin, argv, exit
 import re
@@ -6,6 +6,7 @@ from enum import Enum
 from threading import Thread
 
 BUFSIZE = 1024
+sock = None
 
 class EXIT_CODES(Enum):
     USAGE_ERROR = 3
@@ -56,31 +57,41 @@ def start_connection(port):
 
 def handle_stdin(sock):
     while True: 
-        for line in stdin:
-            sock.send(line.encode())
-            data = sock.recv(BUFSIZE)
-            if not data:
-                break
-            # stdout.buffer.write(data)
-            # stdout.flush()
-            print(data.decode().strip(), file=sys.stdout)
-            sys.stdout.flush()
+        try: 
+            for line in stdin:
+                sock.send(line.encode())
+                data = sock.recv(BUFSIZE)
+                if not data:
+                    break
+                # stdout.buffer.write(data)
+                # stdout.flush()
+                print(data.decode().strip(), file=sys.stdout)
+                sys.stdout.flush()
+        except KeyboardInterrupt:
+            sock.close()
+            sys.exit(0)
+            break
 
 def handle_socket(sock, client_username):
     while True: 
-        data = sock.recv(BUFSIZE).decode().strip()
+        try: 
+            data = sock.recv(BUFSIZE).decode().strip()
 
-        afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
-        if re.match(afk_message, data):
+            afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
+            if re.match(afk_message, data):
+                print(data, file=sys.stdout)
+                os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+
+            if not data:
+                print("Error: server connection closed.")
+                os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+                
             print(data, file=sys.stdout)
-            os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
-
-        if not data:
-            print("Error: server connection closed.")
-            os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
-            
-        print(data, file=sys.stdout)
-        sys.stdout.flush()
+            sys.stdout.flush()
+        except KeyboardInterrupt:
+            sock.close()
+            sys.exit(0)
+            break
 
 def main():
     usage_checking()
@@ -119,15 +130,28 @@ def main():
 
     # create thread to read from stdin
     stdin_thread = Thread(target=handle_stdin, args=(sock, ))
+    stdin_thread.daemon = True
     stdin_thread.start()
 
     # create thread to read from network socket from server
     socket_thread = Thread(target=handle_socket, args=(sock, client_username))
-    socket_thread.start()  
+    socket_thread.daemon = True
+    socket_thread.start()
 
-    # wait for threads to finish
-    stdin_thread.join()
-    socket_thread.join()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        sock.close()
+        sys.exit(0)
+
+
+    try:
+        stdin_thread.join()
+        socket_thread.join()
+    except KeyboardInterrupt:
+        sock.close()
+        sys.exit(0) # what exit code is it? 8? 
 
     sock.close() # somewhere close socket once connection terminated?
 
