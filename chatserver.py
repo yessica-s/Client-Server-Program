@@ -1,4 +1,5 @@
 import os
+import select
 import sys, re
 from socket import *
 from threading import Lock, Thread, Timer, current_thread
@@ -214,6 +215,8 @@ class Server:
             else: # queued
                 sock = channel.queue_sockets[client_username]
 
+        data = None
+
         while True: # Queue Client 
             with counter_lock:
                 if channel.queue_sockets.get(client_username) is None: # left queue TODO: redundant because how would it be removed
@@ -222,6 +225,14 @@ class Server:
             if not data: # client disconnected
                 self.disconnect(channel, client_username) 
                 return
+            # Don't block forever waiting for client data — check if there's anything to read
+            # ready_to_read, _, _ = select.select([sock], [], [], 0.1)
+            # if ready_to_read:
+                
+            #     data = sock.recv(BUFSIZE)
+            #     if not data:
+            #         self.disconnect(channel, client_username)
+            #         return
             
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
@@ -229,18 +240,23 @@ class Server:
                 self.disconnect(channel, client_username)
                 return  
 
-        # for _ in range(10):  # Retry up to ~1 second
-        #     with counter_lock:
-        #         if client_username in channel.connected_clients:
-        #             break
-        #     time.sleep(0.1)
-        # else:
-        #     # Timed out waiting to be promoted
-        #     self.disconnect(channel, client_username)
-        #     return
-        
         sock = channel.client_sockets[client_username]
-            
+
+        # if anything sent since promoted to queue: print it out
+        if data is not None:
+            self.print_message(data, client_username, channel)
+            # message = data.decode().strip()
+            # start_of_message = f"[{client_username}]"
+            # message_to_send = start_of_message + " " + message
+            # # send to all clients in channel
+            # for other_client in channel.connected_clients: 
+            #     current_socket = channel.client_sockets.get(other_client)
+            #     current_socket.sendall(message_to_send.encode())
+
+            # # print to stdout of server
+            # print(message_to_send, file=sys.stdout)
+            # sys.stdout.flush()
+
         while True: # Connected Client
             # Start timer for afk
             timer = Timer(self.afk_time, self.timeout, args=(channel, client_username))
@@ -255,17 +271,18 @@ class Server:
             if not data:
                 break
 
-            message = data.decode().strip()
-            start_of_message = f"[{client_username}]"
-            message_to_send = start_of_message + " " + message
-            # send to all clients in channel
-            for other_client in channel.connected_clients: 
-                current_socket = channel.client_sockets.get(other_client)
-                current_socket.sendall(message_to_send.encode())
+            self.print_message(data, client_username, channel)
+            # message = data.decode().strip()
+            # start_of_message = f"[{client_username}]"
+            # message_to_send = start_of_message + " " + message
+            # # send to all clients in channel
+            # for other_client in channel.connected_clients: 
+            #     current_socket = channel.client_sockets.get(other_client)
+            #     current_socket.sendall(message_to_send.encode())
 
-            # print to stdout of server
-            print(message_to_send, file=sys.stdout)
-            sys.stdout.flush()
+            # # print to stdout of server
+            # print(message_to_send, file=sys.stdout)
+            # sys.stdout.flush()
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
@@ -337,6 +354,21 @@ class Server:
 
                 for item in queued_clients: # re-enqueue remaining clients in order
                     channel.queue.put(item)
+    
+    def print_message(self, data, client_username, channel):
+        message = data.decode().strip()
+        start_of_message = f"[{client_username}]"
+        message_to_send = start_of_message + " " + message
+        # send to all clients in channel
+        for other_client in channel.connected_clients: 
+            current_socket = channel.client_sockets.get(other_client)
+            current_socket.sendall(message_to_send.encode())
+
+        # print to stdout of server
+        print(message_to_send, file=sys.stdout)
+        sys.stdout.flush()
+        
+        return
 
     def timeout(self, channel, client_username):
         afk_message = f"[Server Message] {client_username} went AFK in channel \"{channel.name}\"."

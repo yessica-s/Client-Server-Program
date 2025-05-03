@@ -61,13 +61,11 @@ def handle_stdin(sock):
             for line in stdin:
                 sock.send(line.encode())
                 # I FEEL LIKE THE DATA RECEIVING SHOULD NOT BE HERE AT ALL LEGIT ONLY READING FROM STDIN AND SENDING
-                data = sock.recv(BUFSIZE)
-                if not data:
-                    break
-                # stdout.buffer.write(data)
-                # stdout.flush()
-                print(data.decode().strip(), file=sys.stdout)
-                sys.stdout.flush()
+                # data = sock.recv(BUFSIZE)
+                # if not data:
+                #     break
+                # print(data.decode().strip(), file=sys.stdout)
+                # sys.stdout.flush()
         except KeyboardInterrupt:
             sock.close()
             sys.exit(0)
