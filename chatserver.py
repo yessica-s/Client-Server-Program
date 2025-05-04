@@ -33,6 +33,7 @@ class Channel:
 
         self.queue = Queue() # clients waiting to join
         self.queue_sockets = {} # client -> socket
+        self.queue_clients = 0 # number of clients in queue
 
         self.disconnected_clients = [] # stores client -> True for clients that should be disconnected after afk timeout
 
@@ -184,6 +185,7 @@ class Server:
                     channel.queue.put(client_username)
                     channel.queue_sockets[client_username] = client_socket
                     users_ahead = channel.queue.qsize() - 1
+                    channel.queue_clients += 1 # increment number of clients in Queue
 
                     # Notify client
                     message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
@@ -229,6 +231,7 @@ class Server:
 
             if not data: # client disconnected
                 self.disconnect(channel, client_username) 
+                channel.queue_clients -= 1 # decrement number of clients in Queue
                 return
             else:
                 data_decoded = data.decode().strip()
@@ -236,6 +239,8 @@ class Server:
                     quit_from_queue = True
                     self.disconnect(channel, client_username)
                     return
+                elif data_decoded == "/list":
+                    self.list_command(sock)
             
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
@@ -243,7 +248,7 @@ class Server:
                 self.disconnect(channel, client_username)
                 return  
 
-        sock = channel.client_sockets[client_username]
+        # sock = channel.client_sockets[client_username]
 
         # if anything sent since promoted to queue: print it out
         if data is not None:
@@ -269,8 +274,10 @@ class Server:
                 quit = True
                 self.disconnect(channel, client_username)
                 return
-
-            self.print_message(data, client_username, channel)
+            elif data_decoded == "/list":
+                self.list_command(sock)
+            else: 
+                self.print_message(data, client_username, channel)
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
@@ -329,6 +336,7 @@ class Server:
                 new_client_username = channel.queue.get() # remove from queue
                 new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
                 channel.queue_sockets.pop(new_client_username) # remove from dict
+                channel.queue_clients -= 1 # decrement number of clients in Queue
 
                 # add to connected list
                 channel.connected_clients.append(new_client_username)
@@ -392,6 +400,12 @@ class Server:
 
         message = f"[Server Message] You have joined the channel \"{channel_name}\"."
         socket.sendall(message.encode())
+
+    # creates output for client when client sends /list command
+    def list_command(self, sock):
+        for channel in self.channels:
+            message = f"[Channel] {channel.name} {channel.port} Capacity: {len(channel.connected_clients)}/{channel.capacity}, Queue: {channel.queue_clients}\n"
+            sock.sendall(message.encode())
         
     def main(self):
         self.load_config()

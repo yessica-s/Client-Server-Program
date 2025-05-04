@@ -71,6 +71,12 @@ def handle_stdin(sock):
                         sock.send(line.encode())
                         sock.close()
                         sys.exit(0)
+                elif commands[0] == "/list" or commands[0] == "/list\n":
+                    if len(commands) > 1: # extra arguments
+                        print("[Server Message] Usage: /list", file=sys.stdout)
+                        sys.stdout.flush()
+                    else: 
+                        sock.send(line.encode()) # server will handle list command
                 else: 
                     sock.send(line.encode())
         except KeyboardInterrupt:
