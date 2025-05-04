@@ -241,6 +241,8 @@ class Server:
                     return
                 elif data_decoded == "/list" or data_decoded == "/list\n":
                     self.list_command(sock)
+                elif data_decoded[0] == "/switch":
+                    self.switch_command(sock, channel, commands, client_username, True)
             
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
@@ -279,6 +281,8 @@ class Server:
                 self.list_command(sock)
             elif commands[0] == "/whisper":
                 self.whisper_command(sock, channel, commands, client_username)
+            elif commands[0] == "/switch":
+                self.switch_command(sock, channel, commands, client_username, False)
             else: 
                 self.print_message(data, client_username, channel)
 
@@ -432,6 +436,38 @@ class Server:
 
             sock.sendall(message.encode()) # successful whisper message to sender client
         
+    def switch_command(self, sock, channel, commands, client_username, queue_client):
+        # TODO: create function like handle client separate for switch and debug
+
+        new_channel = commands[1]
+        # print(new_channel, flush=True)
+        if new_channel not in self.channel_names:
+            message = f"[Server Message] Channel \"{new_channel}\" does not exist."
+            sock.sendall(message.encode())
+            # return False
+        
+        # Get channel object using name
+        for current_channel in self.channels:
+            if current_channel.name == new_channel:
+                new_channel = current_channel
+                break
+
+        # if not self.handle_client(new_channel, sock, True): # Failed due to duplicate username, stay in current channel
+        #     return False
+        
+        # Switch has worked - send messages
+        # self.disconnect(channel, client_username)
+
+        # message = f"[Server Message] {client_username} has left the channel."
+        # print(message, file=sys.stdout, flush=True)
+        # if not queue_client: 
+        #     with counter_lock:
+        #         for client in channel.connected_clients: 
+        #             if not client == client_username: #
+        #                 socket = channel.client_sockets[client] # get socket for each client
+        #                 socket.sendall(message.encode()) # send
+
+
     def main(self):
         self.load_config()
         self.process_connections()  
