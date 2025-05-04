@@ -77,6 +77,15 @@ def handle_stdin(sock):
                         sys.stdout.flush()
                     else: 
                         sock.send(line.encode()) # server will handle list command
+                elif commands[0] == "/whisper" or commands[0] == "/whisper\n":
+                    if len(commands) != 3: # too little/many arguments
+                        print("[Server Message] Usage: /whisper receiver_client_username chat_message", file=sys.stdout)
+                        sys.stdout.flush()
+                    elif commands[1] == "" or commands[1] == " " or commands[2] == "" or commands[2] == " ": # any argument is empty space
+                        print("[Server Message] Usage: /whisper receiver_client_username chat_message", file=sys.stdout)
+                        sys.stdout.flush()
+                    else: 
+                        sock.send(line.encode()) # server will handle list command
                 else: 
                     sock.send(line.encode())
         except KeyboardInterrupt:
