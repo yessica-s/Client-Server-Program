@@ -278,7 +278,7 @@ class Server:
             elif data_decoded == "/list" or data_decoded == "/list\n":
                 self.list_command(sock)
             elif commands[0] == "/whisper":
-                self.whisper_command(sock, channel, commands)
+                self.whisper_command(sock, channel, commands, client_username)
             else: 
                 self.print_message(data, client_username, channel)
 
@@ -413,7 +413,7 @@ class Server:
             message = f"[Channel] {channel.name} {channel.port} Capacity: {len(channel.connected_clients)}/{channel.capacity}, Queue: {channel.queue_clients}\n"
             sock.sendall(message.encode())
 
-    def whisper_command(self, sock, channel, commands): 
+    def whisper_command(self, sock, channel, commands, client_username): 
         # commands is arr in format ["/whisper", client_username, chat_message]
 
         # Target client not in channel
@@ -421,8 +421,16 @@ class Server:
             message = f"[Server Message] {commands[1]} is not in the channel."
             sock.sendall(message.encode())
         else: # Client in channel
-            message_to_client = f"[sender_client_username whispers to you] {commands[2]}"
-        
+            message = f"[{client_username} whispers to you] {commands[2]}"
+            target_socket = channel.client_sockets.get(commands[1])
+            target_socket.sendall(message.encode())
+
+            message = f"[{client_username} whispers to {commands[1]}] {commands[2]}"
+
+            print(message, file=sys.stdout) # successful whisper message to server stdout
+            sys.stdout.flush()
+
+            sock.sendall(message.encode()) # successful whisper message to sender client
         
     def main(self):
         self.load_config()
