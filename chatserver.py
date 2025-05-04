@@ -235,11 +235,11 @@ class Server:
                 return
             else:
                 data_decoded = data.decode().strip()
-                if data_decoded == "/quit":
+                if data_decoded == "/quit" or data_decoded == "/quit\n":
                     quit_from_queue = True
                     self.disconnect(channel, client_username)
                     return
-                elif data_decoded == "/list":
+                elif data_decoded == "/list" or data_decoded == "/list\n":
                     self.list_command(sock)
             
         # Check if somehow disconnected while being moved from queue - connected 
@@ -269,13 +269,16 @@ class Server:
                 break
 
             data_decoded = data.decode().strip()
+            commands = data_decoded.split(" ")
 
-            if data_decoded == "/quit":
+            if data_decoded == "/quit" or data_decoded == "/quit\n":
                 quit = True
                 self.disconnect(channel, client_username)
                 return
-            elif data_decoded == "/list":
+            elif data_decoded == "/list" or data_decoded == "/list\n":
                 self.list_command(sock)
+            elif commands[0] == "/whisper":
+                self.whisper_command(sock, channel, commands)
             else: 
                 self.print_message(data, client_username, channel)
 
@@ -409,6 +412,17 @@ class Server:
         for channel in self.channels:
             message = f"[Channel] {channel.name} {channel.port} Capacity: {len(channel.connected_clients)}/{channel.capacity}, Queue: {channel.queue_clients}\n"
             sock.sendall(message.encode())
+
+    def whisper_command(self, sock, channel, commands): 
+        # commands is arr in format ["/whisper", client_username, chat_message]
+
+        # Target client not in channel
+        if not commands[1] in channel.connected_clients: 
+            message = f"[Server Message] {commands[1]} is not in the channel."
+            sock.sendall(message.encode())
+        else: # Client in channel
+            message_to_client = f"[sender_client_username whispers to you] {commands[2]}"
+        
         
     def main(self):
         self.load_config()

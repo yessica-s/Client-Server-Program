@@ -78,6 +78,7 @@ def handle_stdin(sock):
                     else: 
                         sock.send(line.encode()) # server will handle list command
                 elif commands[0] == "/whisper" or commands[0] == "/whisper\n":
+                    commands = line.split(maxsplit=2)
                     if len(commands) != 3: # too little/many arguments
                         print("[Server Message] Usage: /whisper receiver_client_username chat_message", file=sys.stdout)
                         sys.stdout.flush()
