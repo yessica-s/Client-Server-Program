@@ -86,7 +86,16 @@ def handle_stdin(sock):
                         print("[Server Message] Usage: /whisper receiver_client_username chat_message", file=sys.stdout)
                         sys.stdout.flush()
                     else: 
-                        sock.send(line.encode()) # server will handle list command
+                        sock.send(line.encode()) # server will handle whisper command
+                elif commands[0] == "/switch":
+                    if len(commands) != 2: # too little/many arguments
+                        print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
+                    elif commands[1] == "" or commands[1] == " ":
+                        print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
+                    else: 
+                        sock.send(line.encode())
+                elif commands[0] == "/switch\n":
+                    print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
                 else: 
                     sock.send(line.encode())
         except KeyboardInterrupt:
