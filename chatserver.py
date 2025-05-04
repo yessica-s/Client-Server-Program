@@ -331,36 +331,39 @@ class Server:
                 channel.queue_sockets.pop(client_username) # remove from queue sockets
                 socket.close() # close socket
 
-            # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
-            if len(channel.connected_clients) < channel.capacity and not channel.queue.empty(): # If there is client in queue
-                new_client_username = channel.queue.get() # remove from queue
-                new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
-                channel.queue_sockets.pop(new_client_username) # remove from dict
-                channel.queue_clients -= 1 # decrement number of clients in Queue
+            self.promote_from_queue(channel)
 
-                # add to connected list
-                channel.connected_clients.append(new_client_username)
-                channel.client_sockets[new_client_username] = new_client_socket
+    def promote_from_queue(self, channel):
+        # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
+        if len(channel.connected_clients) < channel.capacity and not channel.queue.empty(): # If there is client in queue
+            new_client_username = channel.queue.get() # remove from queue
+            new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
+            channel.queue_sockets.pop(new_client_username) # remove from dict
+            channel.queue_clients -= 1 # decrement number of clients in Queue
 
-                # Notify client and server stdout that new client joined channel
-                self.notify_connected_client(new_client_username, channel.name, new_client_socket)
+            # add to connected list
+            channel.connected_clients.append(new_client_username)
+            channel.client_sockets[new_client_username] = new_client_socket
 
-                # Update user ahead message to queue clients
-                users_ahead = 0 
+            # Notify client and server stdout that new client joined channel
+            self.notify_connected_client(new_client_username, channel.name, new_client_socket)
 
-                queued_clients = []
-                while not channel.queue.empty():
-                    current = channel.queue.get()
-                    queued_clients.append(current)
+            # Update user ahead message to queue clients
+            users_ahead = 0 
 
-                    sock = channel.queue_sockets[current] # get socket
-                    message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
-                    sock.sendall(message.encode())
-                    
-                    users_ahead += 1 # increment number of users ahead
+            queued_clients = []
+            while not channel.queue.empty():
+                current = channel.queue.get()
+                queued_clients.append(current)
 
-                for item in queued_clients: # re-enqueue remaining clients in order
-                    channel.queue.put(item)
+                sock = channel.queue_sockets[current] # get socket
+                message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
+                sock.sendall(message.encode())
+                
+                users_ahead += 1 # increment number of users ahead
+
+            for item in queued_clients: # re-enqueue remaining clients in order
+                channel.queue.put(item)
     
     def print_message(self, data, client_username, channel):
         message = data.decode().strip()
