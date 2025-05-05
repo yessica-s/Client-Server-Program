@@ -1,6 +1,6 @@
 import os
 import sys 
-from sys import stdin
+from sys import stdin, stdout
 import re
 from socket import *
 from threading import Lock, Thread, Timer, current_thread
@@ -14,6 +14,7 @@ class EXIT_CODES(Enum):
 
 quit = False
 quit_from_queue = False
+empty = False
 
 # Shared resource (counter to count the number of data packets received)
 counter = 0
@@ -28,7 +29,7 @@ class Channel:
         self.capacity = capacity
         self.socket = socket
 
-        self.connected_clients = [] # connected clients. DOES NOT STORE QUEUE USERNAMES
+        self.connected_clients = [] # connected clients
         self.client_sockets = {} # client -> socket
 
         self.queue = Queue() # clients waiting to join
@@ -168,10 +169,53 @@ class Server:
             try: 
                 for line in stdin:
                     line = line.strip()
-                    
+                    commands = line.split(" ")
+                    if commands[0] == "/kick":
+                        pass
+                    elif commands[0] == "/shutdown":
+                        pass
+                    elif commands[0] == "/mute":
+                        pass
+                    elif commands[0] == "/empty":
+                        # Usage checking
+                        if len(commands) != 2: # invalid number of args
+                            print("Usage: /empty channel_name", file=sys.stdout, flush=True)
+                        elif commands[1] == "" or commands[1] == " ": # channel name is space
+                            print("Usage: /empty channel_name", file=sys.stdout, flush=True)
+                        elif not re.match(r'^[\x20-\x7E]*\n$', commands[1]):
+                            print("Usage: /empty channel_name", file=sys.stdout, flush=True)
+                        else:
+                            self.empty_command(commands[1])
             except KeyboardInterrupt:
                 # TODO: server disconnect
                 pass
+
+    def empty_command(self, channel_name):
+        global empty
+        empty = True
+        # Check channel name exists
+        if not channel_name in self.channel_names:
+            print(f"[Server Message] Channel \"{channel_name}\" does not exist.", file=sys.stdout, flush=True)
+        
+        # Get channel object
+        channel = None
+        for current_channel in self.channels:
+            if current_channel.name == channel_name:
+                channel = current_channel
+                break
+        
+        # Disconnect each client and move any clients up
+        # Count the number currently connected and do that mant since 
+        # otherwise the disconnect function will keep adding from queue
+        # and it will empty those as well
+        num_clients = len(channel.connected_clients) 
+
+        # for i in range(0, num_clients):
+        #     client = channel.connected_clients[0]
+        #     self.disconnect(channel, client)
+
+        # empty = False
+        # print(f"[Server Message] \"{channel_name}\" has been emptied.", file=sys.stdout, flush=True)
 
     # Create a new thread for each client
     def handle_channel(self, channel):
@@ -305,16 +349,19 @@ class Server:
         return
 
     def disconnect(self, channel, client_username):
-        message = f"[Server Message] {client_username} has left the channel."
-        print(message)
-        sys.stdout.flush()
+        if not empty:
+            message = f"[Server Message] {client_username} has left the channel."
+            print(message)
+            sys.stdout.flush()
 
         global quit
         global quit_from_queue
 
         with counter_lock:
             # send to all clients in channel
-            if quit_from_queue: 
+            if empty:
+                pass
+            elif quit_from_queue: 
                 pass
             elif quit:
                 for other_client in channel.connected_clients: 
