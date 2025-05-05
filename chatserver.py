@@ -190,8 +190,16 @@ class Server:
                         else:
                             print(f"[Server Message] Server shuts down.", file=sys.stdout, flush=True)
                             os._exit(0)
-                    elif commands[0] == "/mute" or commands[0] == "/mute\n":
-                        pass
+                    elif commands[0] == "/mute" or commands[0] == "/mute\\n" or commands[0] == "\mute\n":
+                        commands = line.split(" ", maxsplit=2)
+                        if len(commands) != 3:
+                            print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
+                        elif "" in commands[1] or " " in commands[1] or "" in commands[2] or " " in commands[2]:
+                            print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
+                        elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]):
+                            print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
+                        else:
+                            pass
                     elif commands[0] == "/empty" or commands[0] == "/empty\\n" or commands[0] == "/empty\n":
                         commands = line.split(" ", maxsplit=1)
                         if len(commands) != 2:
@@ -205,7 +213,6 @@ class Server:
                         # elif commands[1].rstrip("\n") != commands[1].rstrip():
                         #     print("Usage: /empty channel_name", file=sys.stdout, flush=True)
                         else:
-                            # commands[1] = commands[1].strip("\n")
                             self.empty_command(commands[1])
             except KeyboardInterrupt:
                 # TODO: server disconnect
