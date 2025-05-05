@@ -208,7 +208,8 @@ class Server:
         # Count the number currently connected and do that mant since 
         # otherwise the disconnect function will keep adding from queue
         # and it will empty those as well
-        num_clients = len(channel.connected_clients) 
+        with counter_lock:
+            num_clients = len(channel.connected_clients) 
 
         # for i in range(0, num_clients):
         #     client = channel.connected_clients[0]
@@ -289,6 +290,7 @@ class Server:
 
             if not data: # client disconnected
                 self.disconnect(channel, client_username) 
+                self.promote_from_queue(channel)
                 channel.queue_clients -= 1 # decrement number of clients in Queue
                 return
             else:
@@ -296,6 +298,7 @@ class Server:
                 if data_decoded == "/quit" or data_decoded == "/quit\n":
                     quit_from_queue = True
                     self.disconnect(channel, client_username)
+                    self.promote_from_queue(channel)
                     return
                 elif data_decoded == "/list" or data_decoded == "/list\n":
                     self.list_command(sock)
@@ -306,6 +309,7 @@ class Server:
         with counter_lock:
             if client_username not in channel.connected_clients: 
                 self.disconnect(channel, client_username)
+                self.promote_from_queue(channel)
                 return  
 
         # sock = channel.client_sockets[client_username]
@@ -321,6 +325,7 @@ class Server:
 
             if client_username in channel.disconnected_clients: # client to be disconnected due to AFK
                 self.disconnect(channel, client_username)
+                self.promote_from_queue(channel)
                 return
 
             data = sock.recv(BUFSIZE)
@@ -334,6 +339,7 @@ class Server:
             if data_decoded == "/quit" or data_decoded == "/quit\n":
                 quit = True
                 self.disconnect(channel, client_username)
+                self.promote_from_queue(channel)
                 return
             elif data_decoded == "/list" or data_decoded == "/list\n":
                 self.list_command(sock)
@@ -346,6 +352,7 @@ class Server:
 
         # handle disconnection, update queue, etc.
         self.disconnect(channel, client_username)
+        self.promote_from_queue(channel)
         return
 
     def disconnect(self, channel, client_username):
@@ -399,7 +406,7 @@ class Server:
                 channel.queue_sockets.pop(client_username) # remove from queue sockets
                 socket.close() # close socket
 
-            self.promote_from_queue(channel)
+            # self.promote_from_queue(channel)
 
     def promote_from_queue(self, channel):
         # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
