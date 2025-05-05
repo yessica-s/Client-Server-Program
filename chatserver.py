@@ -506,7 +506,6 @@ class Server:
             message = f"[Server Message] {commands[1]} is not in the channel."
             sock.sendall(message.encode())
         else: # Client in channel
-            if client_username == 
             message = f"[{client_username} whispers to you] {commands[2]}"
             target_socket = channel.client_sockets.get(commands[1])
             target_socket.sendall(message.encode())
