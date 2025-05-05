@@ -168,27 +168,38 @@ class Server:
         while True:
             try: 
                 for line in stdin:
-                    # line = line.strip()
+                    line = line.strip("\n")
                     commands = line.split(" ")
                     if commands[0] == "/kick" or commands[0] == "/kick\n":
-                        pass
+                        commands = line.split(" ", maxsplit=2)
+                        if len(commands) != 3: 
+                            print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
+                        elif commands[1] == "" or commands[1] == " " or commands[2] == "" or commands[2] == " ":
+                            print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
+                        elif " " in commands[1] or " " in commands[2]:
+                            print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
+                        elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]): # does not allow space, allows new lines # \n after *
+                            print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
+                        else:
+                            pass
                     elif commands[0] == "/shutdown" or commands[0] == "/shutdown\n":
                         pass
                     elif commands[0] == "/mute" or commands[0] == "/mute\n":
                         pass
-                    elif commands[0] == "/empty" or commands[0] == "/empty\n":
-                        # Usage checking
-                        if len(commands) != 2: # invalid number of args
+                    elif commands[0] == "/empty" or commands[0] == "/empty\\n" or commands[0] == "/empty\n":
+                        commands = line.split(" ", maxsplit=1)
+                        if len(commands) != 2:
                             print("Usage: /empty channel_name", file=sys.stdout, flush=True)
                         elif commands[1] == "" or commands[1] == " ": # channel name is space
                             print("Usage: /empty channel_name", file=sys.stdout, flush=True)
-                        elif not re.match(r'^[\x21-\x7E]*\n$', commands[1]): # does not allow space, allows new lines
+                        elif " " in commands[1]:
+                            print("Usage: /empty channel_name", file=sys.stdout, flush=True)
+                        elif not re.match(r'^[\x21-\x7E]*$', commands[1]): # does not allow space, allows new lines # \n after *
                             print("Usage: /empty channel_name", file=sys.stdout, flush=True)
                         # elif commands[1].rstrip("\n") != commands[1].rstrip():
                         #     print("Usage: /empty channel_name", file=sys.stdout, flush=True)
                         else:
-                            # strip the new linesince didn't previously
-                            commands[1] = commands[1].strip("\n")
+                            # commands[1] = commands[1].strip("\n")
                             self.empty_command(commands[1])
             except KeyboardInterrupt:
                 # TODO: server disconnect
@@ -208,7 +219,6 @@ class Server:
                 break
         
         message = "[Server Message] You are removed from the channel."
-        print(len(channel.connected_clients), flush=True)
         # Disconnect each client
         with counter_lock:
             for client_username in list(channel.connected_clients):
