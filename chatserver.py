@@ -1,11 +1,11 @@
 import os
-import select
-import sys, re
+import sys 
+from sys import stdin
+import re
 from socket import *
 from threading import Lock, Thread, Timer, current_thread
 from enum import Enum
 from queue import Queue
-import time
 
 class EXIT_CODES(Enum):
     CONFIG_FILE_ERROR = 5
@@ -155,9 +155,23 @@ class Server:
     
     # Create a new thread for each channel
     def process_connections(self):
+
+        stdin_thread = Thread(target=self.handle_stdin, daemon=True)
+        stdin_thread.start()
+
         for channel in self.channels:
             client_thread = Thread(target=self.handle_channel, args=(channel, ))
             client_thread.start()
+
+    def handle_stdin(self):
+        while True: 
+            try: 
+                for line in stdin:
+                    line = line.strip()
+                    
+            except KeyboardInterrupt:
+                # TODO: server disconnect
+                pass
 
     # Create a new thread for each client
     def handle_channel(self, channel):
