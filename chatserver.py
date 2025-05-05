@@ -165,37 +165,43 @@ class Server:
             client_thread.start()
 
     def handle_stdin(self):
-        while True: 
+        while True:
             try: 
                 for line in stdin:
-                    line = line.strip()
+                    # line = line.strip()
                     commands = line.split(" ")
-                    if commands[0] == "/kick":
+                    if commands[0] == "/kick" or commands[0] == "/kick\n":
                         pass
-                    elif commands[0] == "/shutdown":
+                    elif commands[0] == "/shutdown" or commands[0] == "/shutdown\n":
                         pass
-                    elif commands[0] == "/mute":
+                    elif commands[0] == "/mute" or commands[0] == "/mute\n":
                         pass
-                    elif commands[0] == "/empty":
+                    elif commands[0] == "/empty" or commands[0] == "/empty\n":
                         # Usage checking
                         if len(commands) != 2: # invalid number of args
                             print("Usage: /empty channel_name", file=sys.stdout, flush=True)
                         elif commands[1] == "" or commands[1] == " ": # channel name is space
                             print("Usage: /empty channel_name", file=sys.stdout, flush=True)
-                        elif not re.match(r'^[\x20-\x7E]*\n$', commands[1]):
+                        elif not re.match(r'^[\x21-\x7E]*\n$', commands[1]): # does not allow space, allows new lines
                             print("Usage: /empty channel_name", file=sys.stdout, flush=True)
+                        # elif commands[1].rstrip("\n") != commands[1].rstrip():
+                        #     print("Usage: /empty channel_name", file=sys.stdout, flush=True)
                         else:
+                            # strip the new linesince didn't previously
+                            commands[1] = commands[1].strip("\n")
                             self.empty_command(commands[1])
             except KeyboardInterrupt:
                 # TODO: server disconnect
                 pass
 
     def empty_command(self, channel_name):
-        global empty
-        empty = True
+        global empty # variable tells disconnect not to print "you have left channel" message
+        empty = True 
+
         # Check channel name exists
         if not channel_name in self.channel_names:
             print(f"[Server Message] Channel \"{channel_name}\" does not exist.", file=sys.stdout, flush=True)
+            return
         
         # Get channel object
         channel = None
@@ -205,18 +211,16 @@ class Server:
                 break
         
         # Disconnect each client and move any clients up
-        # Count the number currently connected and do that mant since 
-        # otherwise the disconnect function will keep adding from queue
-        # and it will empty those as well
         with counter_lock:
-            num_clients = len(channel.connected_clients) 
+            for client in channel.connected_clients:
+                self.disconnect(channel, client)
+        
+        empty = False
 
-        # for i in range(0, num_clients):
-        #     client = channel.connected_clients[0]
-        #     self.disconnect(channel, client)
-
-        # empty = False
-        # print(f"[Server Message] \"{channel_name}\" has been emptied.", file=sys.stdout, flush=True)
+        print(f"[Server Message] \"{channel_name}\" has been emptied.", file=sys.stdout, flush=True)
+        for i in range(0, channel.capacity):
+            self.promote_from_queue(channel)
+        
 
     # Create a new thread for each client
     def handle_channel(self, channel):
@@ -356,10 +360,16 @@ class Server:
         return
 
     def disconnect(self, channel, client_username):
-        if not empty:
+        if empty:
+            message = "[Server Message] You are removed from the channel."
+            # get socket
+            socket = channel.client_sockets[client_username]
+            socket.sendall(message.encode())
+        else:
             message = f"[Server Message] {client_username} has left the channel."
             print(message)
             sys.stdout.flush()
+
 
         global quit
         global quit_from_queue
