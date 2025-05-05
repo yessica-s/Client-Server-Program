@@ -115,9 +115,8 @@ def handle_socket(sock, client_username):
                 print(data, file=sys.stdout)
                 os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
 
-            empty_message = "[Server Message] You are removed from the channel."
-            if data == empty_message:
-                # print("here",flush=True)
+            empty_kick_message = "[Server Message] You are removed from the channel."
+            if data == empty_kick_message:
                 print(data, file=sys.stdout,flush=True)
                 os._exit(0)
 

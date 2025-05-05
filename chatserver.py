@@ -181,7 +181,7 @@ class Server:
                         elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]): # does not allow space, allows new lines # \n after *
                             print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
                         else:
-                            self.kick_command(commands[2], commands[3])
+                            self.kick_command(commands[1], commands[2])
                     elif commands[0] == "/shutdown" or commands[0] == "/shutdown\n":
                         pass
                     elif commands[0] == "/mute" or commands[0] == "/mute\n":
@@ -219,12 +219,34 @@ class Server:
                 break
 
         # Check connected client in channel
-        if not client_username in channel.connected_clients:
-            print(f"[Server Message] {client_username} is not in the channel.", file=sys.stdout, flush=True)
-            return
-    
+        with counter_lock:
+            if not client_username in channel.connected_clients:
+                print(f"[Server Message] {client_username} is not in the channel.", file=sys.stdout, flush=True)
+                return
+            
+        # Notify kicked user
+        message = "[Server Message] You are removed from the channel."
+        with counter_lock:
+            socket = channel.client_sockets.get(client_username) # Get kicked client socket
+            socket.sendall(message.encode())
 
+            # Handle kicking - Remove client from list and from socket dict
+            channel.connected_clients.remove(client_username) # remove from connected clients list
+            channel.client_sockets.pop(client_username) # remove from connected sockets list
+            socket.close() # close socket
+
+        # Print to stdout
+        print(f"[Server Message] Kicked {client_username}.", file=sys.stdout, flush=True)
+
+        message = f"[Server Message] {client_username} has left the channel."
+        with counter_lock:
+            for other_client in channel.connected_clients: # Notify connected clients
+                other_socket = channel.client_sockets.get(other_client)
+                other_socket.sendall(message.encode())
         
+            for other_client in channel.queue_clients_usernames: # Notify queue'd clients
+                other_socket = channel.queue_sockets.get(other_client)
+                other_socket.sendall(message.encode())  
 
     def empty_command(self, channel_name):
         # Check channel name exists
@@ -259,7 +281,6 @@ class Server:
         with counter_lock:
             for i in range(0, channel.capacity):
                 self.promote_from_queue(channel)
-        
 
     # Create a new thread for each client
     def handle_channel(self, channel):
