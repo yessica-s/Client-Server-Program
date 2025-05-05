@@ -15,6 +15,7 @@ class EXIT_CODES(Enum):
     DUPLICATE_USERNAME_ERROR = 2
     DISCONNECT_ERROR = 8
 
+
 def usage_checking():
     if len(sys.argv) < 3 or len(sys.argv) > 3:  # Not enough/too many arguments
         print("Usage: chatclient port_number client_username", file=sys.stderr)
@@ -113,6 +114,12 @@ def handle_socket(sock, client_username):
             if re.match(afk_message, data):
                 print(data, file=sys.stdout)
                 os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+
+            empty_message = "[Server Message] You are removed from the channel."
+            if data == empty_message:
+                # print("here",flush=True)
+                print(data, file=sys.stdout,flush=True)
+                os._exit(0)
 
             if not data:
                 if not quit:

@@ -14,7 +14,6 @@ class EXIT_CODES(Enum):
 
 quit = False
 quit_from_queue = False
-empty = False
 
 # Shared resource (counter to count the number of data packets received)
 counter = 0
@@ -35,6 +34,7 @@ class Channel:
         self.queue = Queue() # clients waiting to join
         self.queue_sockets = {} # client -> socket
         self.queue_clients = 0 # number of clients in queue
+        self.queue_clients_usernames = [] # list of queue client usernames
 
         self.disconnected_clients = [] # stores client -> True for clients that should be disconnected after afk timeout
 
@@ -195,9 +195,6 @@ class Server:
                 pass
 
     def empty_command(self, channel_name):
-        global empty # variable tells disconnect not to print "you have left channel" message
-        empty = True 
-
         # Check channel name exists
         if not channel_name in self.channel_names:
             print(f"[Server Message] Channel \"{channel_name}\" does not exist.", file=sys.stdout, flush=True)
@@ -210,16 +207,27 @@ class Server:
                 channel = current_channel
                 break
         
-        # Disconnect each client and move any clients up
+        message = "[Server Message] You are removed from the channel."
+        # Disconnect each client
         with counter_lock:
-            for client in channel.connected_clients:
-                self.disconnect(channel, client)
-        
-        empty = False
+            for client_username in channel.connected_clients:
 
+                # Get socket
+                socket = channel.client_sockets[client_username]
+                socket.sendall(message.encode())
+
+                # Remove client from list and from socket dict
+                channel.connected_clients.remove(client_username) # remove from connected clients list
+                socket = channel.client_sockets[client_username] # get socket for each client
+                channel.client_sockets.pop(client_username) # remove from connected sockets list
+                socket.close() # close socket
+        
         print(f"[Server Message] \"{channel_name}\" has been emptied.", file=sys.stdout, flush=True)
-        for i in range(0, channel.capacity):
-            self.promote_from_queue(channel)
+
+        # Promote clients from queue
+        with counter_lock:
+            for i in range(0, channel.capacity):
+                self.promote_from_queue(channel)
         
 
     # Create a new thread for each client
@@ -249,6 +257,7 @@ class Server:
                     channel.queue_sockets[client_username] = client_socket
                     users_ahead = channel.queue.qsize() - 1
                     channel.queue_clients += 1 # increment number of clients in Queue
+                    channel.queue_clients_usernames.append(client_username)
 
                     # Notify client
                     message = f"[Server Message] You are in the waiting queue and there are {users_ahead} user(s) ahead of you."
@@ -270,11 +279,6 @@ class Server:
         # Continuously listen and send data to other clients in channel
         global quit
         global quit_from_queue
-
-        # TODO: any time client disconnects:
-        # - from queue: check after it leaves queue
-        # - from connected: call message method and then disconnect method
-        # DONE - from AFK: call timeout method and then disconnect method
         
         # Get client socket
         sock = None
@@ -290,6 +294,7 @@ class Server:
             with counter_lock:
                 if channel.queue_sockets.get(client_username) is None: # left queue TODO: redundant because how would it be removed
                     break
+
             data = sock.recv(BUFSIZE)
 
             if not data: # client disconnected
@@ -334,6 +339,7 @@ class Server:
 
             data = sock.recv(BUFSIZE)
             timer.cancel() # Cancel AFK timer since data received
+
             if not data:
                 break
 
@@ -360,25 +366,20 @@ class Server:
         return
 
     def disconnect(self, channel, client_username):
-        if empty:
-            message = "[Server Message] You are removed from the channel."
-            # get socket
-            socket = channel.client_sockets[client_username]
-            socket.sendall(message.encode())
-        else:
-            message = f"[Server Message] {client_username} has left the channel."
-            print(message)
-            sys.stdout.flush()
 
+        # If not emptied
+        with counter_lock:
+            if client_username in channel.connected_clients or client_username in channel.queue_clients_usernames: 
+                message = f"[Server Message] {client_username} has left the channel."
+                print(message)
+                sys.stdout.flush()
 
         global quit
         global quit_from_queue
 
         with counter_lock:
             # send to all clients in channel
-            if empty:
-                pass
-            elif quit_from_queue: 
+            if quit_from_queue: 
                 pass
             elif quit:
                 for other_client in channel.connected_clients: 
@@ -401,9 +402,11 @@ class Server:
                 socket = channel.client_sockets[client_username] # get socket for each client
                 channel.client_sockets.pop(client_username) # remove from connected sockets list
                 socket.close() # close socket
-            else: # Client disconnected from queue
+            elif client_username in channel.queue_clients_usernames: # Client disconnected from queue
                 # remove from queue by dequeueing and enqueing all except removed client
                 queued_clients = []
+                channel.queue_clients_usernames.remove(client_username)
+                # channel.queue_clients -= 1 this is done in handle comms function
                 while not channel.queue.empty():
                     current = channel.queue.get()
                     if not current == client_username:
@@ -415,9 +418,7 @@ class Server:
                 socket = channel.queue_sockets[client_username]
                 channel.queue_sockets.pop(client_username) # remove from queue sockets
                 socket.close() # close socket
-
-            # self.promote_from_queue(channel)
-
+                
     def promote_from_queue(self, channel):
         # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
         if len(channel.connected_clients) < channel.capacity and not channel.queue.empty(): # If there is client in queue
@@ -425,6 +426,7 @@ class Server:
             new_client_socket = channel.queue_sockets[new_client_username] # get socket from dict
             channel.queue_sockets.pop(new_client_username) # remove from dict
             channel.queue_clients -= 1 # decrement number of clients in Queue
+            channel.queue_clients_usernames.remove(new_client_username)
 
             # add to connected list
             channel.connected_clients.append(new_client_username)
