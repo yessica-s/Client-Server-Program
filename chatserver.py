@@ -191,15 +191,15 @@ class Server:
                             print(f"[Server Message] Server shuts down.", file=sys.stdout, flush=True)
                             os._exit(0)
                     elif commands[0] == "/mute" or commands[0] == "/mute\\n" or commands[0] == "\mute\n":
-                        commands = line.split(" ", maxsplit=2)
-                        if len(commands) != 3:
+                        commands = line.split(" ", maxsplit=4)
+                        if len(commands) != 4:
                             print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
-                        elif "" in commands[1] or " " in commands[1] or "" in commands[2] or " " in commands[2]:
+                        elif "" in commands[1] or " " in commands[1] or "" in commands[2] or " " in commands[2] or "" in commands[3] or " " in commands[3]:
                             print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
-                        elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]):
+                        elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]) or not re.match(r'^[\x21-\x7E]*$', commands[3]):
                             print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
                         else:
-                            pass
+                            self.mute_command(commands[1], commands[2], commands[3])
                     elif commands[0] == "/empty" or commands[0] == "/empty\\n" or commands[0] == "/empty\n":
                         commands = line.split(" ", maxsplit=1)
                         if len(commands) != 2:
@@ -217,6 +217,9 @@ class Server:
             except KeyboardInterrupt:
                 # TODO: server disconnect
                 pass
+
+    def mute_command(self, channel_name, client_name, duration):
+        pass
 
     def kick_command(self, channel_name, client_username):
         # Check channel exists
