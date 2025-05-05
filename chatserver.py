@@ -182,8 +182,14 @@ class Server:
                             print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
                         else:
                             self.kick_command(commands[1], commands[2])
-                    elif commands[0] == "/shutdown" or commands[0] == "/shutdown\n":
-                        pass
+                    elif commands[0] == "/shutdown" or commands[0] == "/shutdown\\n": # or commands[0] == "/shutdown\n":
+                        if len(commands) != 1: 
+                            print("Usage: /shutdown", file=sys.stdout, flush=True)
+                        elif not re.match(r'^[\x21-\x7E]*$', commands[0]) or "\\n" in commands[0]: # does not allow space, allows new lines # \n after *
+                            print("Usage: /shutdown", file=sys.stdout, flush=True)
+                        else:
+                            print(f"[Server Message] Server shuts down.", file=sys.stdout, flush=True)
+                            os._exit(0)
                     elif commands[0] == "/mute" or commands[0] == "/mute\n":
                         pass
                     elif commands[0] == "/empty" or commands[0] == "/empty\\n" or commands[0] == "/empty\n":
