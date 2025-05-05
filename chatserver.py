@@ -208,10 +208,10 @@ class Server:
                 break
         
         message = "[Server Message] You are removed from the channel."
+        print(len(channel.connected_clients), flush=True)
         # Disconnect each client
         with counter_lock:
-            for client_username in channel.connected_clients:
-
+            for client_username in list(channel.connected_clients):
                 # Get socket
                 socket = channel.client_sockets[client_username]
                 socket.sendall(message.encode())
@@ -367,10 +367,11 @@ class Server:
 
     def disconnect(self, channel, client_username):
 
+        message = f"[Server Message] {client_username} has left the channel."
+
         # If not emptied
         with counter_lock:
             if client_username in channel.connected_clients or client_username in channel.queue_clients_usernames: 
-                message = f"[Server Message] {client_username} has left the channel."
                 print(message)
                 sys.stdout.flush()
 
@@ -387,7 +388,7 @@ class Server:
                         continue
                     current_socket = channel.client_sockets.get(other_client)
                     current_socket.sendall(message.encode())
-            else:
+            elif client_username in channel.connected_clients or client_username in channel.queue_clients_usernames:
                 for other_client in channel.connected_clients: 
                     current_socket = channel.client_sockets.get(other_client)
                     current_socket.sendall(message.encode())
@@ -505,6 +506,7 @@ class Server:
             message = f"[Server Message] {commands[1]} is not in the channel."
             sock.sendall(message.encode())
         else: # Client in channel
+            if client_username == 
             message = f"[{client_username} whispers to you] {commands[2]}"
             target_socket = channel.client_sockets.get(commands[1])
             target_socket.sendall(message.encode())
