@@ -181,7 +181,7 @@ class Server:
                         elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]): # does not allow space, allows new lines # \n after *
                             print("Usage: /kick channel_name client_username", file=sys.stdout, flush=True)
                         else:
-                            pass
+                            self.kick_command(commands[2], commands[3])
                     elif commands[0] == "/shutdown" or commands[0] == "/shutdown\n":
                         pass
                     elif commands[0] == "/mute" or commands[0] == "/mute\n":
@@ -204,6 +204,27 @@ class Server:
             except KeyboardInterrupt:
                 # TODO: server disconnect
                 pass
+
+    def kick_command(self, channel_name, client_username):
+        # Check channel exists
+        if not channel_name in self.channel_names:
+            print(f"[Server Message] Channel \"{channel_name}\" does not exist.", file=sys.stdout, flush=True)
+            return
+    
+        # Get channel object
+        channel = None
+        for current_channel in self.channels:
+            if current_channel.name == channel_name:
+                channel = current_channel
+                break
+
+        # Check connected client in channel
+        if not client_username in channel.connected_clients:
+            print(f"[Server Message] {client_username} is not in the channel.", file=sys.stdout, flush=True)
+            return
+    
+
+        
 
     def empty_command(self, channel_name):
         # Check channel name exists
@@ -398,7 +419,7 @@ class Server:
                         continue
                     current_socket = channel.client_sockets.get(other_client)
                     current_socket.sendall(message.encode())
-            elif client_username in channel.connected_clients or client_username in channel.queue_clients_usernames:
+            elif client_username in channel.connected_clients: # or client_username in channel.queue_clients_usernames:
                 for other_client in channel.connected_clients: 
                     current_socket = channel.client_sockets.get(other_client)
                     current_socket.sendall(message.encode())
