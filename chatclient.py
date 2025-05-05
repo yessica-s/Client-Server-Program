@@ -112,8 +112,9 @@ def handle_socket(sock, client_username):
 
             afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
             if re.match(afk_message, data):
-                print(data, file=sys.stdout)
-                os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
+                print(data, file=sys.stdout, flush=True)
+                os._exit(0)
+                # os._exit(EXIT_CODES.DISCONNECT_ERROR.value) # AFK, clean this up
 
             empty_kick_message = "[Server Message] You are removed from the channel."
             if data == empty_kick_message:
@@ -122,13 +123,12 @@ def handle_socket(sock, client_username):
 
             if not data:
                 if not quit:
-                    print("Error: server connection closed.", file=sys.stderr)
+                    print("Error: server connection closed.", file=sys.stderr, flush=True)
                     os._exit(EXIT_CODES.DISCONNECT_ERROR.value)
                 else:
                     os._exit(0)
                 
-            print(data, file=sys.stdout)
-            sys.stdout.flush()
+            print(data, file=sys.stdout, flush=True)
         except KeyboardInterrupt:
             sock.close()
             sys.exit(0)

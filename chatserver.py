@@ -429,9 +429,10 @@ class Server:
 
         # If not emptied
         with counter_lock:
-            if client_username in channel.connected_clients or client_username in channel.queue_clients_usernames: 
-                print(message)
-                sys.stdout.flush()
+            if not client_username in channel.disconnected_clients: # if not AFK client
+                if client_username in channel.connected_clients or client_username in channel.queue_clients_usernames: 
+                    print(message)
+                    sys.stdout.flush()
 
         global quit
         global quit_from_queue
@@ -446,6 +447,8 @@ class Server:
                         continue
                     current_socket = channel.client_sockets.get(other_client)
                     current_socket.sendall(message.encode())
+            elif client_username in channel.disconnected_clients:
+                pass # don't send "left" message to other clients if AFK
             elif client_username in channel.connected_clients: # or client_username in channel.queue_clients_usernames:
                 for other_client in channel.connected_clients: 
                     current_socket = channel.client_sockets.get(other_client)
@@ -530,16 +533,15 @@ class Server:
         afk_message = f"[Server Message] {client_username} went AFK in channel \"{channel.name}\"."
         
         # Send message to chatserver stdout
-        print(afk_message, file=sys.stdout)
-        sys.stdout.flush()
+        print(afk_message, file=sys.stdout, flush=True)
 
         with counter_lock:
             # Send message to connected clients (including client about to be disconnected)
-            for client in channel.connected_clients: 
+            for client in channel.connected_clients:
                 socket = channel.client_sockets[client] # get socket for each client
                 socket.sendall(afk_message.encode()) # send   
 
-            channel.disconnected_clients.append(client_username) # assign it as disconnected so disconnect function called in handle_comms  
+            channel.disconnected_clients.append(client_username) # assign it as disconnected due to AFK so disconnect function called in handle_comms  
         
         return # disconnect and socket and thread close handled in disconnect function
 
