@@ -460,6 +460,11 @@ class Server:
                 self.whisper_command(sock, channel, commands, client_username)
             elif commands[0] == "/switch":
                 self.switch_command(sock, channel, commands, client_username, False)
+            elif commands[0] == "/send":
+                self.send_command(sock, channel, commands, client_username)
+            elif commands[0] == "[FileSize]": # client file sending handled in send function
+                file_size = commands[1]
+                # TODO: RECEIVE HEE
             else: 
                 self.print_message(data, client_username, channel)
 
@@ -596,6 +601,42 @@ class Server:
 
         message = f"[Server Message] You have joined the channel \"{channel_name}\"."
         socket.sendall(message.encode())
+
+    def send_command(self, sock, channel, commands, client_username):
+        # commands in format: [/send, target_client_username, file_path]
+
+        # Same client
+        if client_username == commands[1]: 
+            message = "[Server Message] Cannot send file to yourself."
+            sock.sendall(message.encode())
+            return
+
+        # Client doesn't exist
+        client_exists = True
+        if not commands[1] in channel.connected_clients:
+            message = f"[Server Message] {commands[1]} is not in the channel."
+            sock.sendall(message.encode())
+            client_exists = False
+
+        file_path = commands[2]
+
+        try:
+            with open(file_path) as file:
+                pass
+            if not client_exists: # if client doesn't exist then return
+                return
+        except FileNotFoundError:
+            message = f"[Server Message] \"{file_path}\" does not exist."
+            sock.sendall(message.encode())
+            return
+        
+        message = "[Server Message] Start transmission."
+        sock.sendall(message.encode())
+
+        # File size and everything handled by recv
+        # Get file size
+        # data = sock.recv(BUFSIZE).decode().strip()
+
 
     # creates output for client when client sends /list command
     def list_command(self, sock):

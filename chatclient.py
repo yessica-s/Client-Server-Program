@@ -12,6 +12,7 @@ quit = False
 mute = False
 mute_duration = 0
 mute_counter = 0
+file_path = None
 
 class EXIT_CODES(Enum):
     USAGE_ERROR = 3
@@ -62,7 +63,7 @@ def start_connection(port):
         exit(EXIT_CODES.PORT_CHECK_ERROR.value)
 
 def handle_stdin(sock):
-    global quit, mute, mute_duration
+    global quit, mute, mute_duration, file_path
     while True: 
         try: 
             for line in stdin:
@@ -77,17 +78,15 @@ def handle_stdin(sock):
                         sock.send(line.encode())
                         sock.close()
                         sys.exit(0)
-
                 elif commands[0] == "/list" or commands[0] == "/list\n":
                     if len(commands) > 1: # extra arguments
                         print("[Server Message] Usage: /list", file=sys.stdout)
                         sys.stdout.flush()
                     else: 
                         sock.send(line.encode()) # server will handle list command
-
                 elif commands[0] == "/whisper" or commands[0] == "/whisper\n":
                     commands = line.split(maxsplit=2)
-                    if len(commands) != 3: # too little/many arguments
+                    if len(commands) != 3: # too little/many arguments, unnecessary since maxsplit 2
                         print("[Server Message] Usage: /whisper receiver_client_username chat_message", file=sys.stdout, flush=True)
                     elif commands[1] == "" or commands[1] == " " or commands[2] == "" or commands[2] == " ": # any argument is empty space
                         print("[Server Message] Usage: /whisper receiver_client_username chat_message", file=sys.stdout, flush=True)
@@ -95,13 +94,22 @@ def handle_stdin(sock):
                         print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
                     else: 
                         sock.send(line.encode()) # server will handle whisper command
-                
                 elif commands[0] == "/send" or commands[0] == "/send\n":
-                    if mute: 
+                    commands = line.split(maxsplit=2)
+                    if len(commands) != 3:
+                        print("[Server Message] Usage: /send target_client_username file_path", file=sys.stdout, flush=True)
+                    elif commands[1] == "" or commands[1] == " " or commands[2] == "" or commands[2] == " ":
+                        print("[Server Message] Usage: /send target_client_username file_path", file=sys.stdout, flush=True)
+                    elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]):
+                        print("[Server Message] Usage: /send target_client_username file_path", file=sys.stdout, flush=True)
+                    elif mute: 
                         print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
-                        continue
-                    pass
-                
+                    else:
+                        file_path = commands[2]
+                        sock.send(line.encode())
+
+                        # data = sock.recv(BUFSIZE).decode().strip()
+                        # if data == "[Server Message] Start transmisson.":
                 elif commands[0] == "/switch":
                     if len(commands) != 2: # too little/many arguments
                         print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
@@ -109,7 +117,6 @@ def handle_stdin(sock):
                         print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
                     else: 
                         sock.send(line.encode())
-                
                 elif commands[0] == "/switch\n": 
                     print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
                 
@@ -129,6 +136,18 @@ def handle_socket(sock, client_username):
     while True: 
         try: 
             data = sock.recv(BUFSIZE).decode().strip()
+
+            if data == "[Server Message] Start transmission.":
+                # send file
+                with open(file_path, "rb") as f:
+                    file_data = f.read()
+
+                    file_size = len(file_data)
+                    message = f"[FileSize] {file_size}."
+
+                    sock.sendall(file_data.encode())
+
+                continue 
 
             afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
             if re.match(afk_message, data):
