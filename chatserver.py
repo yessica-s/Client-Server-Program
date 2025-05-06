@@ -232,12 +232,28 @@ class Server:
         
         return channel
 
-    def mute_command(self, channel_name, client_name, duration):
+    def mute_command(self, channel_name, client_username, duration):
         # Check channel exists
         channel = self.get_channel(channel_name)
         if channel is None:
             return
         
+        # Check connected client in channel
+        with counter_lock:
+            if not client_username in channel.connected_clients:
+                print(f"[Server Message] {client_username} is not in the channel.", file=sys.stdout, flush=True)
+                return
+        
+        # Check duration positive integer
+        try:
+            duration = int(duration)
+            if duration <= 0: 
+                raise ValueError
+        except ValueError:
+            print("[Server Message] Invalid mute duration.", file=sys.stdout, flush=True)
+            return
+    
+        # Handle mute
 
     def kick_command(self, channel_name, client_username):
         # Check channel exists
