@@ -218,21 +218,32 @@ class Server:
                 # TODO: server disconnect
                 pass
 
-    def mute_command(self, channel_name, client_name, duration):
-        pass
-
-    def kick_command(self, channel_name, client_username):
+    def get_channel(self, channel_name): 
         # Check channel exists
         if not channel_name in self.channel_names:
             print(f"[Server Message] Channel \"{channel_name}\" does not exist.", file=sys.stdout, flush=True)
-            return
     
-        # Get channel object
+        # Get channel object and return
         channel = None
         for current_channel in self.channels:
             if current_channel.name == channel_name:
                 channel = current_channel
                 break
+        
+        return channel
+
+    def mute_command(self, channel_name, client_name, duration):
+        # Check channel exists
+        channel = self.get_channel(channel_name)
+        if channel is None:
+            return
+        
+
+    def kick_command(self, channel_name, client_username):
+        # Check channel exists
+        channel = self.get_channel(channel_name)
+        if channel is None:
+            return
 
         # Check connected client in channel
         with counter_lock:
@@ -265,17 +276,10 @@ class Server:
                 other_socket.sendall(message.encode())  
 
     def empty_command(self, channel_name):
-        # Check channel name exists
-        if not channel_name in self.channel_names:
-            print(f"[Server Message] Channel \"{channel_name}\" does not exist.", file=sys.stdout, flush=True)
+        # Check channel exists
+        channel = self.get_channel(channel_name)
+        if channel is None:
             return
-        
-        # Get channel object
-        channel = None
-        for current_channel in self.channels:
-            if current_channel.name == channel_name:
-                channel = current_channel
-                break
         
         message = "[Server Message] You are removed from the channel."
         # Disconnect each client
