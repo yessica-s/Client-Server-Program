@@ -194,7 +194,7 @@ class Server:
                         commands = line.split(" ", maxsplit=4)
                         if len(commands) != 4:
                             print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
-                        elif "" in commands[1] or " " in commands[1] or "" in commands[2] or " " in commands[2] or "" in commands[3] or " " in commands[3]:
+                        elif commands[1] == "" or " " in commands[1] or commands[2] == "" or " " in commands[2] or commands[3] == "" or " " in commands[3]:
                             print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
                         elif not re.match(r'^[\x21-\x7E]*$', commands[1]) or not re.match(r'^[\x21-\x7E]*$', commands[2]) or not re.match(r'^[\x21-\x7E]*$', commands[3]):
                             print("Usage: /mute channel_name client_username duration", file=sys.stdout, flush=True)
@@ -253,7 +253,22 @@ class Server:
             print("[Server Message] Invalid mute duration.", file=sys.stdout, flush=True)
             return
     
-        # Handle mute
+        # Print to stdout
+        print(f"[Server Message] Muted {client_username} for {duration} seconds.", file=sys.stdout, flush=True)
+
+        # Notify client and connected clients
+        message = f"[Server Message] You have been muted for {duration} seconds."
+        with counter_lock:
+            socket = channel.client_sockets.get(client_username)
+            socket.sendall(message.encode())
+
+            message = f"[Server Message] {client_username} has been muted for {duration} seconds."
+            for other_client in channel.connected_clients:
+                if not other_client == client_username:
+                    other_socket = channel.client_sockets.get(other_client)
+                    other_socket.sendall(message.encode())
+
+        # Client handles mute functionality   
 
     def kick_command(self, channel_name, client_username):
         # Check channel exists

@@ -1,4 +1,4 @@
-import sys, os, signal, time
+import sys, os, time
 from socket import *
 from sys import stdout, stdin, argv, exit
 import re
@@ -8,6 +8,8 @@ from threading import Thread
 BUFSIZE = 1024
 sock = None
 quit = False
+mute = False
+mute_duration = 0
 
 class EXIT_CODES(Enum):
     USAGE_ERROR = 3
@@ -58,11 +60,21 @@ def start_connection(port):
         exit(EXIT_CODES.PORT_CHECK_ERROR.value)
 
 def handle_stdin(sock):
-    global quit
+    global quit, mute, mute_duration
     while True: 
         try: 
             for line in stdin:
                 commands = line.split(" ")
+
+                # check for mute disabled calls
+                if mute: 
+                    if commands[0] == "/whisper" or commands[0] == "/whisper\n":
+                        print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
+                        continue
+                    elif commands[0] == "/send" or commands[0] == "/send\n": # TODO: change when implement send checking
+                        print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
+                        continue
+
                 if commands[0] == "/quit" or commands[0] == "/quit\n":
                     if len(commands) > 1: # extra arguments
                         print("[Server Message] Usage: /quit", file=sys.stdout)
@@ -71,6 +83,7 @@ def handle_stdin(sock):
                         quit = True
                         sock.send(line.encode())
                         sock.close()
+                        quit, mute = False
                         sys.exit(0)
                 elif commands[0] == "/list" or commands[0] == "/list\n":
                     if len(commands) > 1: # extra arguments
@@ -97,15 +110,20 @@ def handle_stdin(sock):
                         sock.send(line.encode())
                 elif commands[0] == "/switch\n":
                     print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
-                else: 
-                    sock.send(line.encode())
+                else:
+                    if mute: 
+                        print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
+                    else:
+                        sock.send(line.encode())
         except KeyboardInterrupt:
             sock.close()
+            quit, mute = False
             sys.exit(0)
             break
 
 def handle_socket(sock, client_username):
-    global quit
+    global quit, mute, mute_duration
+
     while True: 
         try: 
             data = sock.recv(BUFSIZE).decode().strip()
@@ -113,27 +131,59 @@ def handle_socket(sock, client_username):
             afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
             if re.match(afk_message, data):
                 print(data, file=sys.stdout, flush=True)
+                quit, mute = False
                 os._exit(0)
 
             empty_kick_message = "[Server Message] You are removed from the channel."
             if data == empty_kick_message:
                 print(data, file=sys.stdout,flush=True)
+                quit, mute = False
                 os._exit(0)
 
             if not data:
                 if not quit:
                     print("Error: server connection closed.", file=sys.stderr, flush=True)
+                    quit, mute = False
                     os._exit(EXIT_CODES.DISCONNECT_ERROR.value)
                 else:
+                    quit, mute = False
                     os._exit(0)
-                
-            print(data, file=sys.stdout, flush=True)
+
+            mute_message = r'^\[Server Message\] You have been muted for .*? seconds\.$'
+            if re.match(mute_message, data):
+                print(data, file=sys.stdout, flush=True)
+                # Extract duration
+                match = re.search(r"(\b\d+)", data)
+                duration = int(match.group(1))
+                handle_mute(duration)
+            else:   
+                print(data, file=sys.stdout, flush=True)
         except KeyboardInterrupt:
             sock.close()
+            quit, mute = False
             sys.exit(0)
             break
 
+def handle_mute(duration):
+    global mute
+    global mute_duration
+    
+    mute = True
+    mute_duration = duration
+
+    def unmute():
+        global mute, mute_duration
+        time.sleep(duration)
+        mute = False
+        mute_duration = 0
+
+    unmute_thread = Thread(target=unmute, args=())
+    unmute_thread.daemon = True
+    unmute_thread.start()
+
 def main():
+    global mute, quit
+
     usage_checking()
     # check port is integer here while converting
     port = None
@@ -183,6 +233,7 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         sock.close()
+        quit, mute = False
         sys.exit(0)
 
 
@@ -191,6 +242,7 @@ def main():
         socket_thread.join()
     except KeyboardInterrupt:
         sock.close()
+        quit, mute = False
         sys.exit(0) # what exit code is it? 8? 
 
     sock.close() # somewhere close socket once connection terminated?
