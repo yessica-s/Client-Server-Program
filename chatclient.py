@@ -13,6 +13,8 @@ mute = False
 mute_duration = 0
 mute_counter = 0
 file_path = None
+client_doesnt_exist = False
+sending = True
 
 class EXIT_CODES(Enum):
     USAGE_ERROR = 3
@@ -63,7 +65,7 @@ def start_connection(port):
         exit(EXIT_CODES.PORT_CHECK_ERROR.value)
 
 def handle_stdin(sock):
-    global quit, mute, mute_duration, file_path
+    global quit, mute, mute_duration, file_path, sending
     while True: 
         try: 
             for line in stdin:
@@ -105,8 +107,9 @@ def handle_stdin(sock):
                     elif mute: 
                         print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
                     else:
-                        file_path = commands[2]
+                        file_path = commands[2].strip()
                         sock.send(line.encode())
+                        sending = True
 
                         # data = sock.recv(BUFSIZE).decode().strip()
                         # if data == "[Server Message] Start transmisson.":
@@ -131,24 +134,47 @@ def handle_stdin(sock):
             break
 
 def handle_socket(sock, client_username):
-    global quit, mute, mute_duration
+    global quit, mute, mute_duration, client_doesnt_exist, file_path, sending
 
     while True: 
         try: 
             data = sock.recv(BUFSIZE).decode().strip()
 
-            if data == "[Server Message] Start transmission.":
-                # send file
-                with open(file_path, "rb") as f:
-                    file_data = f.read()
+            if re.match(r'^\[Server Message\] ".*?" is not in the channel\.$', data) and sending == True:
+                print(data, file=sys.stdout,flush=True)
+                client_doesnt_exist = True # server gave error that client sending to doesn't exist
+                continue
 
-                    file_size = len(file_data)
-                    message = f"[FileSize] {file_size}."
+            if data == "[Server Message] Start transmission." and sending == True:
+                try:
+                    with open(file_path, "rb") as file:
 
-                    sock.sendall(file_data.encode())
+                        if client_doesnt_exist: # don't send 
+                            continue
+                        else: # send
+                            file_data = file.read()
 
-                continue 
+                            # Send file size
+                            file_size = len(file_data)
+                            message = f"[FileSize] {file_size}"
+                            sock.sendall(message.encode())
 
+                            # Send file data 
+                            sock.sendall(file_data)
+                            sending = False
+                            file_path = None
+                except FileNotFoundError:
+                    print(f"[Server Message] \"{file_path}\" does not exist.", file=sys.stdout, flush=True)
+                    
+                    sending = False
+                    file_path = None
+
+                continue # stop with sending 
+
+            client_doesnt_exist = False
+            # sending = False
+            # file_path = None
+            
             afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
             if re.match(afk_message, data):
                 print(data, file=sys.stdout, flush=True)
@@ -218,8 +244,7 @@ def main():
     response = sock.recv(BUFSIZE).decode().strip() # server response - either username already exists or "welcome to chatclient"... - see spec
 
     # flush either message (welcome message or username error message) to stdout
-    print(response, file=sys.stdout)
-    sys.stdout.flush()
+    print(response, file=sys.stdout, flush=True)
     
     # if got username error, also exit program status 2
     # TODO: check this message is ok

@@ -382,6 +382,8 @@ class Server:
         # Continuously listen and send data to other clients in channel
         global quit
         global quit_from_queue
+        target_client = None
+        file_path = None
         
         # Get client socket
         sock = None
@@ -462,9 +464,28 @@ class Server:
                 self.switch_command(sock, channel, commands, client_username, False)
             elif commands[0] == "/send":
                 self.send_command(sock, channel, commands, client_username)
+                target_client = commands[1] # store the target client username
+                file_path = commands[2].strip() # TODO: strip of new line???
             elif commands[0] == "[FileSize]": # client file sending handled in send function
-                file_size = commands[1]
-                # TODO: RECEIVE HEE
+                # Receive file
+                file_size = int(commands[1])
+
+                file_data = b""
+
+                while len(file_data) < file_size: 
+                    current = sock.recv(min(BUFSIZE, file_size - len(file_data)))
+                    if not current:
+                        # failed, do something
+                        message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
+                        sock = channel.client_sockets.get(client_username)
+                        sock.sendall(message.encode())
+                        # CLIENT NEEDS TO RECEIVE THIS SOMEWHERE
+                    file_data += current
+
+                # received, transfer to other client
+
+                target_client = None
+                file_path = None
             else: 
                 self.print_message(data, client_username, channel)
 
@@ -619,19 +640,12 @@ class Server:
             client_exists = False
 
         file_path = commands[2]
-
-        try:
-            with open(file_path) as file:
-                pass
-            if not client_exists: # if client doesn't exist then return
-                return
-        except FileNotFoundError:
-            message = f"[Server Message] \"{file_path}\" does not exist."
-            sock.sendall(message.encode())
-            return
         
         message = "[Server Message] Start transmission."
         sock.sendall(message.encode())
+        # print("SERVER SENT SERVER MESSAGE", flush=True)
+
+        # Client checks if file path can be opened
 
         # File size and everything handled by recv
         # Get file size
