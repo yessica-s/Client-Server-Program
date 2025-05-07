@@ -156,6 +156,7 @@ def handle_socket(sock, client_username):
 
                             # Send file size
                             file_size = len(file_data)
+                            # print("client sending filesize!!!!", flush=True)
                             message = f"[FileSize] {file_size}"
                             sock.sendall(message.encode())
 

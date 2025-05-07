@@ -467,6 +467,7 @@ class Server:
                 target_client = commands[1] # store the target client username
                 file_path = commands[2].strip() # TODO: strip of new line???
             elif commands[0] == "[FileSize]": # client file sending handled in send function
+                # print("FILE SIZE RECEIVED", flush=True)
                 # Receive file
                 file_size = int(commands[1])
 
@@ -482,7 +483,23 @@ class Server:
                         # CLIENT NEEDS TO RECEIVE THIS SOMEWHERE
                     file_data += current
 
-                # received, transfer to other client
+                # Received, transfer to target client now
+
+                # Send sent message to client
+                message = f"[Server Message] Sent \"{file_path}\" to {target_client}."
+                sock.sendall(message.encode())
+
+                # Send message to server stdout and receiver
+                
+                # Get base name of file_path
+                parts = file_path.split('/')
+                basename = parts[-1]
+
+                message = f"[Server Message] {client_username} sent \"{basename}\" to {target_client}."
+                print(message, file=sys.stdout, flush=True)
+                other_socket = channel.client_sockets.get(target_client)
+                other_socket.sendall(message.encode())
+
 
                 target_client = None
                 file_path = None
