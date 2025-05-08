@@ -281,7 +281,7 @@ def main():
     print(response, file=sys.stdout, flush=True)
     
     # if got username error, also exit program status 2
-    username_error_message = rf"^\[Server Message\] Channel \".*\" already has user {client_username}\.\n$" # TODO HERE IS POTENTIAL NL ISSUE
+    username_error_message = rf"^\[Server Message\] Channel \".*\" already has user {client_username}\.$" 
     if re.match(username_error_message, response):
         exit(EXIT_CODES.DUPLICATE_USERNAME_ERROR.value)
 
