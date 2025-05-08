@@ -337,11 +337,16 @@ class Server:
     def handle_channel(self, channel):
         while True: 
             client_socket, client_address = channel.socket.accept()
-            client_thread = Thread(target=self.handle_client, args=(channel, client_socket)) # removed client_address command
+            client_thread = Thread(target=self.handle_client, args=(channel, client_socket, None, False)) # removed client_address command
             client_thread.start() 
 
-    def handle_client(self, channel, client_socket): # removed client_address arg
-        client_username = client_socket.recv(BUFSIZE).decode().strip() # get client username, sent automatically by client after connection
+    def handle_client(self, channel, client_socket, switch_client_username, switch): # removed client_address arg
+        client_username = None
+        if switch:
+            client_username = switch_client_username
+            switch = False
+        else: 
+            client_username = client_socket.recv(BUFSIZE).decode().strip() # get client username, sent automatically by client after connection
 
         # check username not already in channel
         with counter_lock:
@@ -403,7 +408,7 @@ class Server:
             data = sock.recv(BUFSIZE)
 
             if not data: # client disconnected
-                self.disconnect(channel, client_username) 
+                self.disconnect(channel, client_username, False) 
                 self.promote_from_queue(channel)
                 channel.queue_clients -= 1 # decrement number of clients in Queue
                 return
@@ -422,7 +427,7 @@ class Server:
         # Check if somehow disconnected while being moved from queue - connected 
         with counter_lock:
             if client_username not in channel.connected_clients: 
-                self.disconnect(channel, client_username)
+                self.disconnect(channel, client_username, False)
                 self.promote_from_queue(channel)
                 return  
             
@@ -436,7 +441,7 @@ class Server:
             timer.start()
 
             if client_username in channel.disconnected_clients: # client to be disconnected due to AFK
-                self.disconnect(channel, client_username)
+                self.disconnect(channel, client_username, False)
                 self.promote_from_queue(channel)
                 return
 
@@ -451,7 +456,7 @@ class Server:
 
             if data_decoded == "/quit" or data_decoded == "/quit\n":
                 quit = True
-                self.disconnect(channel, client_username)
+                self.disconnect(channel, client_username, False)
                 self.promote_from_queue(channel)
                 return
             elif data_decoded == "/list" or data_decoded == "/list\n":
@@ -463,7 +468,15 @@ class Server:
                     # didn't work
                     continue
                 else:
-                    pass
+                    new_channel = commands[1]
+                    for channels in self.channels:
+                        if channels.name == new_channel:
+                            new_channel = channels
+                            break
+                        
+                    self.disconnect(channel, client_username, True)
+                    self.handle_client(new_channel, sock, client_username, True)
+                    return
             elif commands[0] == "/send":
                 target_client = commands[1] # store the target client username
                 file_path = commands[2].strip()
@@ -479,7 +492,7 @@ class Server:
                 self.print_message(data, client_username, channel)
 
         # handle disconnection, update queue, etc.
-        self.disconnect(channel, client_username)
+        self.disconnect(channel, client_username, False)
         self.promote_from_queue(channel)
         return
     
@@ -541,8 +554,7 @@ class Server:
         else: 
             self.print_message(ack, client_username, channel)
 
-    def disconnect(self, channel, client_username):
-
+    def disconnect(self, channel, client_username, switch):
         message = f"[Server Message] {client_username} has left the channel."
 
         # If not emptied
@@ -567,6 +579,11 @@ class Server:
                     current_socket.sendall(message.encode())
             elif client_username in channel.disconnected_clients:
                 pass # don't send "left" message to other clients if AFK
+            elif switch:
+                for other_client in channel.connected_clients: # don't inform switching client in switch
+                    if not other_client == client_username: 
+                        current_socket = channel.client_sockets.get(other_client)
+                        current_socket.sendall(message.encode())
             elif client_username in channel.connected_clients: # or client_username in channel.queue_clients_usernames:
                 for other_client in channel.connected_clients: 
                     current_socket = channel.client_sockets.get(other_client)
@@ -581,7 +598,8 @@ class Server:
                 channel.connected_clients.remove(client_username) # remove from connected clients list
                 socket = channel.client_sockets[client_username] # get socket for each client
                 channel.client_sockets.pop(client_username) # remove from connected sockets list
-                socket.close() # close socket
+                if not switch: # don't close socket in switching
+                    socket.close() # close socket
             elif client_username in channel.queue_clients_usernames: # Client disconnected from queue
                 # remove from queue by dequeueing and enqueing all except removed client
                 queued_clients = []
@@ -597,7 +615,8 @@ class Server:
                 # channel.queue.queue.remove(client_username) # remove from queue
                 socket = channel.queue_sockets[client_username]
                 channel.queue_sockets.pop(client_username) # remove from queue sockets
-                socket.close() # close socket
+                if not switch: # don't close socket in switching
+                    socket.close() # close socket
                 
     def promote_from_queue(self, channel):
         # If empty spot in channel (connected client disconnected) and queue not empty, promote client from queue
@@ -739,12 +758,18 @@ class Server:
                 break
 
         # check if client exists already
-        if client_username in new_channel.connected_clients or client_username in new_channel.queue_client_usernames:
+        if client_username in new_channel.connected_clients or client_username in new_channel.queue_clients_usernames:
             message = f"[Server Message] Channel \"{new_channel.name}\" already has user {client_username}."
             sock.sendall(message.encode())
             return False
-    
         
+        return True
+        
+        # self.disconnect(channel, client_username)
+    
+        # Switch to go ahead
+        
+
 
         # if not self.handle_client(new_channel, sock, True): # Failed due to duplicate username, stay in current channel
         #     return False
