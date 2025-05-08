@@ -459,7 +459,11 @@ class Server:
             elif commands[0] == "/whisper":
                 self.whisper_command(sock, channel, commands, client_username)
             elif commands[0] == "/switch":
-                self.switch_command(sock, channel, commands, client_username, False)
+                if not self.switch_command(sock, channel, commands, client_username, False):
+                    # didn't work
+                    continue
+                else:
+                    pass
             elif commands[0] == "/send":
                 target_client = commands[1] # store the target client username
                 file_path = commands[2].strip()
@@ -535,7 +539,7 @@ class Server:
             target_client = None
             file_path = None
         else: 
-            self.print_message(data, client_username, channel)
+            self.print_message(ack, client_username, channel)
 
     def disconnect(self, channel, client_username):
 
@@ -686,14 +690,12 @@ class Server:
         
         message = "[Server Message] Start transmission."
         sock.sendall(message.encode())
-        # print("SERVER SENT SERVER MESSAGE", flush=True)
 
         # Client checks if file path can be opened
 
         # File size and everything handled by recv
         # Get file size
         # data = sock.recv(BUFSIZE).decode().strip()
-
 
     # creates output for client when client sends /list command
     def list_command(self, sock):
@@ -728,13 +730,21 @@ class Server:
         if new_channel not in self.channel_names:
             message = f"[Server Message] Channel \"{new_channel}\" does not exist."
             sock.sendall(message.encode())
-            # return False
+            return False
         
         # Get channel object using name
         for current_channel in self.channels:
             if current_channel.name == new_channel:
                 new_channel = current_channel
                 break
+
+        # check if client exists already
+        if client_username in new_channel.connected_clients or client_username in new_channel.queue_client_usernames:
+            message = f"[Server Message] Channel \"{new_channel.name}\" already has user {client_username}."
+            sock.sendall(message.encode())
+            return False
+    
+        
 
         # if not self.handle_client(new_channel, sock, True): # Failed due to duplicate username, stay in current channel
         #     return False
