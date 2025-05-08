@@ -121,8 +121,7 @@ def handle_stdin(sock):
                     else: 
                         sock.send(line.encode())
                 elif commands[0] == "/switch\n": 
-                    print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
-                
+                    print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True) 
                 else:
                     if mute: 
                         print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
