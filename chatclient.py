@@ -24,20 +24,26 @@ class EXIT_CODES(Enum):
 
 
 def usage_checking():
-    if len(sys.argv) < 3 or len(sys.argv) > 3:  # Not enough/too many arguments
+    if len(sys.argv) != 3:  # Not enough/too many arguments
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
 
-    if sys.argv[1] == "" or sys.argv[2] == "":  # empty strings
+    if not sys.argv[1] or not sys.argv[2]: # empty strings or whitespace
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
 
-    # check client username is space
-    if sys.argv[1] == " " or sys.argv[2] == " ":  # empty strings
+    # if sys.argv[1] == "" or sys.argv[2] == "":  # empty strings
+    #     print("Usage: chatclient port_number client_username", file=sys.stderr)
+    #     exit(EXIT_CODES.USAGE_ERROR.value)
+
+    # # check client username or port is space 
+    # if sys.argv[1] == " " or sys.argv[2] == " ":  # empty strings
+    #     print("Usage: chatclient port_number client_username", file=sys.stderr)
+    #     exit(EXIT_CODES.USAGE_ERROR.value)
+
+    if " " in sys.argv[2]: # check username contains space
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
-
-    # TODO: check client username contains space
 
     # check port value is integer
     try:
@@ -275,7 +281,7 @@ def main():
 
     sock = start_connection(port) # returns connected socket to send stuff on
     sock.send(client_username.encode()) # send username to server
-    response = sock.recv(BUFSIZE).decode() # .strip() # server response - either username already exists or "welcome to chatclient"... - see spec
+    response = sock.recv(BUFSIZE).decode().strip() # server response - either username already exists or "welcome to chatclient"... - see spec
 
     # flush either message (welcome message or username error message) to stdout
     print(response, file=sys.stdout, flush=True)
