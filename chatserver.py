@@ -427,8 +427,8 @@ class Server:
                 return  
             
         # if anything sent since promoted to queue: print it out
-        # if data is not None:
-        #     self.print_message(data, client_username, channel)
+        if data is not None:
+            self.print_message(data, client_username, channel)
 
         while True: # Connected Client
             # Start timer for afk
