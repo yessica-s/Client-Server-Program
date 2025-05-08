@@ -230,6 +230,9 @@ def handle_socket(sock, client_username):
                 match = re.search(r"(\b\d+)", data)
                 duration = int(match.group(1))
                 handle_mute(duration)
+                # elif re.match(r"^Welcome to chatclient, \S+.$"):
+                #     print(data, file=sys.stdout, flush=True)
+                #     print("\n", flush=True)
             else:   
                 print(data, file=sys.stdout, flush=True)
         except KeyboardInterrupt:
