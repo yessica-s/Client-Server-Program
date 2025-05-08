@@ -425,12 +425,10 @@ class Server:
                 self.disconnect(channel, client_username)
                 self.promote_from_queue(channel)
                 return  
-
-        # sock = channel.client_sockets[client_username]
-
+            
         # if anything sent since promoted to queue: print it out
-        if data is not None:
-            self.print_message(data, client_username, channel)
+        # if data is not None:
+        #     self.print_message(data, client_username, channel)
 
         while True: # Connected Client
             # Start timer for afk
@@ -463,46 +461,68 @@ class Server:
             elif commands[0] == "/switch":
                 self.switch_command(sock, channel, commands, client_username, False)
             elif commands[0] == "/send":
-                self.send_command(sock, channel, commands, client_username)
                 target_client = commands[1] # store the target client username
-                file_path = commands[2].strip() # TODO: strip of new line???
+                file_path = commands[2].strip()
+                self.send_command(sock, channel, commands, client_username)
+                continue
+                # elif data_decoded == "[Client Message] Ready" or data_decoded == "[Client Message] File Transfer Failed" or data_decoded == "[Client Message] Received": 
+                #     continue # part of file transfer process - handled in sending client's thread  
             elif commands[0] == "[FileSize]": # client file sending handled in send function
-                # print("FILE SIZE RECEIVED", flush=True)
-                # Receive file
                 file_size = int(commands[1])
 
                 file_data = b""
 
                 while len(file_data) < file_size: 
                     current = sock.recv(min(BUFSIZE, file_size - len(file_data)))
-                    if not current:
-                        # failed, do something
+                    if not current: # Failed
                         message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
                         sock = channel.client_sockets.get(client_username)
                         sock.sendall(message.encode())
-                        # CLIENT NEEDS TO RECEIVE THIS SOMEWHERE
+                        continue
                     file_data += current
 
                 # Received, transfer to target client now
-
-                # Send sent message to client
-                message = f"[Server Message] Sent \"{file_path}\" to {target_client}."
-                sock.sendall(message.encode())
-
-                # Send message to server stdout and receiver
-                
-                # Get base name of file_path
                 parts = file_path.split('/')
                 basename = parts[-1]
 
-                message = f"[Server Message] {client_username} sent \"{basename}\" to {target_client}."
-                print(message, file=sys.stdout, flush=True)
-                other_socket = channel.client_sockets.get(target_client)
-                other_socket.sendall(message.encode())
+                target_socket = channel.client_sockets.get(target_client)
+                message = f"[Server Message] FileSize {basename} {file_size}"
+                target_socket.sendall(message.encode()) # Send file size
 
+                # wait for response from client
+                ack = target_socket.recv(BUFSIZE).decode().strip()
+                if ack == "[Client Message] Ready":
+                    target_socket.sendall(file_data)
+                
+                    # print("waiting for data",flush=True)
+                    data = target_socket.recv(BUFSIZE).decode().strip()
+                    # print("got it", flush=True)
 
-                target_client = None
-                file_path = None
+                    if data == "[Client Message] File Transfer Failed":
+                        message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
+                        sock = channel.client_sockets.get(client_username)
+                        sock.sendall(message.encode())
+                        continue
+                    elif data == "[Client Message] Received":
+                        print("recevied the received message", flush=True)
+                        pass
+
+                    # Send sent message to client
+                    message = f"[Server Message] Sent \"{file_path}\" to {target_client}."
+                    sock.sendall(message.encode())
+
+                    # Send message to server stdout and receiver
+                    parts = file_path.split('/')
+                    basename = parts[-1]
+
+                    message = f"[Server Message] {client_username} sent \"{basename}\" to {target_client}."
+                    print(message, file=sys.stdout, flush=True)
+                    target_socket.sendall(message.encode())
+
+                    target_client = None
+                    file_path = None
+                else: 
+                    self.print_message(data, client_username, channel)
             else: 
                 self.print_message(data, client_username, channel)
 

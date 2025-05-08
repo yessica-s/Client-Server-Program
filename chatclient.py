@@ -140,7 +140,8 @@ def handle_socket(sock, client_username):
         try: 
             data = sock.recv(BUFSIZE).decode().strip()
 
-            if re.match(r'^\[Server Message\] ".*?" is not in the channel\.$', data) and sending == True:
+            # if re.match(r'^\[Server Message\] ".*?" is not in the channel\.$', data) and sending == True:
+            if re.match(r'^\[Server Message\] .+ is not in the channel\.$', data): 
                 print(data, file=sys.stdout,flush=True)
                 client_doesnt_exist = True # server gave error that client sending to doesn't exist
                 continue
@@ -156,25 +157,55 @@ def handle_socket(sock, client_username):
 
                             # Send file size
                             file_size = len(file_data)
-                            # print("client sending filesize!!!!", flush=True)
                             message = f"[FileSize] {file_size}"
                             sock.sendall(message.encode())
 
                             # Send file data 
                             sock.sendall(file_data)
-                            sending = False
-                            file_path = None
+                            # sending = False
+                            # file_path = None
                 except FileNotFoundError:
                     print(f"[Server Message] \"{file_path}\" does not exist.", file=sys.stdout, flush=True)
                     
-                    sending = False
-                    file_path = None
-
+                sending = False
+                file_path = None
+                client_doesnt_exist = False
                 continue # stop with sending 
 
             client_doesnt_exist = False
-            # sending = False
-            # file_path = None
+            sending = False
+            file_path = None
+
+            if re.match(r"^\[Server Message\] FileSize \S+ \d+$", data): # server wants to send file
+                data = data.strip()
+                commands = data.split(" ")
+                file_size = int(commands[4])
+                basename = commands[3]
+    	
+                message = "[Client Message] Ready"
+                sock.sendall(message.encode())
+
+                file_data = b""
+                while len(file_data) < file_size: 
+                    current = sock.recv(min(BUFSIZE, file_size - len(file_data)))
+                    if not current:
+                        # failed
+                        message = "[Client Message] File Transfer Failed"
+                        sock.sendall(message.encode())
+                        continue
+                    file_data += current
+
+                if not len(file_data) == file_size: 
+                    message = "[Client Message] File Transfer Failed"
+                    sock.sendall(message.encode())
+                else: 
+                    message = "[Client Message] Received"
+                    sock.sendall(message.encode())
+
+                    with open(basename, "wb") as f:
+                        f.write(file_data)
+
+                continue
             
             afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
             if re.match(afk_message, data):
