@@ -465,6 +465,8 @@ class Server:
                 file_path = commands[2].strip()
                 self.send_command(sock, channel, commands, client_username)
                 continue
+            elif data_decoded == "[Client Message] Received":
+                continue
                 # elif data_decoded == "[Client Message] Ready" or data_decoded == "[Client Message] File Transfer Failed" or data_decoded == "[Client Message] Received": 
                 #     continue # part of file transfer process - handled in sending client's thread  
             elif commands[0] == "[FileSize]": # client file sending handled in send function
@@ -495,17 +497,17 @@ class Server:
                     target_socket.sendall(file_data)
                 
                     # print("waiting for data",flush=True)
-                    data = target_socket.recv(BUFSIZE).decode().strip()
+                    # data = target_socket.recv(BUFSIZE).decode().strip()
                     # print("got it", flush=True)
 
-                    if data == "[Client Message] File Transfer Failed":
-                        message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-                        sock = channel.client_sockets.get(client_username)
-                        sock.sendall(message.encode())
-                        continue
-                    elif data == "[Client Message] Received":
-                        print("recevied the received message", flush=True)
-                        pass
+                    # if data == "[Client Message] File Transfer Failed":
+                    #     message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
+                    #     sock = channel.client_sockets.get(client_username)
+                    #     sock.sendall(message.encode())
+                    #     continue
+                    # elif data == "[Client Message] Received":
+                    #     print("recevied the received message", flush=True)
+                    #     pass
 
                     # Send sent message to client
                     message = f"[Server Message] Sent \"{file_path}\" to {target_client}."
