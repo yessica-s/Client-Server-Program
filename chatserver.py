@@ -426,7 +426,7 @@ class Server:
                 self.promote_from_queue(channel)
                 return  
             
-        # if anything sent since promoted to queue: print it out
+        # if anything sent since promoted to queue: print it out, TODO: problem is that if this is a command itll just print it
         if data is not None:
             self.print_message(data, client_username, channel)
 
@@ -471,61 +471,6 @@ class Server:
                 #     continue # part of file transfer process - handled in sending client's thread  
             elif commands[0] == "[FileSize]": # client file sending handled in send function
                 self.handle_file_transfer(channel, commands, target_client, file_path, sock, client_username)
-                # file_size = int(commands[1])
-
-                # file_data = b""
-
-                # while len(file_data) < file_size: 
-                #     current = sock.recv(min(BUFSIZE, file_size - len(file_data)))
-                #     if not current: # Failed
-                #         message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-                #         sock = channel.client_sockets.get(client_username)
-                #         sock.sendall(message.encode())
-                #         continue
-                #     file_data += current
-
-                # # Received, transfer to target client now
-                # parts = file_path.split('/')
-                # basename = parts[-1]
-
-                # target_socket = channel.client_sockets.get(target_client)
-                # message = f"[Server Message] FileSize {basename} {file_size}"
-                # target_socket.sendall(message.encode()) # Send file size
-
-                # # wait for response from client
-                # ack = target_socket.recv(BUFSIZE).decode().strip()
-                # if ack == "[Client Message] Ready":
-                #     target_socket.sendall(file_data)
-                
-                #     # print("waiting for data",flush=True)
-                #     # data = target_socket.recv(BUFSIZE).decode().strip()
-                #     # print("got it", flush=True)
-
-                #     # if data == "[Client Message] File Transfer Failed":
-                #     #     message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-                #     #     sock = channel.client_sockets.get(client_username)
-                #     #     sock.sendall(message.encode())
-                #     #     continue
-                #     # elif data == "[Client Message] Received":
-                #     #     print("recevied the received message", flush=True)
-                #     #     pass
-
-                #     # Send sent message to client
-                #     message = f"[Server Message] Sent \"{file_path}\" to {target_client}."
-                #     sock.sendall(message.encode())
-
-                #     # Send message to server stdout and receiver
-                #     parts = file_path.split('/')
-                #     basename = parts[-1]
-
-                #     message = f"[Server Message] {client_username} sent \"{basename}\" to {target_client}."
-                #     print(message, file=sys.stdout, flush=True)
-                #     target_socket.sendall(message.encode())
-
-                #     target_client = None
-                #     file_path = None
-                # else: 
-                #     self.print_message(data, client_username, channel)
             else: 
                 self.print_message(data, client_username, channel)
 
