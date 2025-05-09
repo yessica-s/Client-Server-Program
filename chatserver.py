@@ -743,7 +743,6 @@ class Server:
         new_channel = commands[1]
         if new_channel not in self.channel_names:
             new_channel_repr = repr(new_channel)[1:-1]
-            # message = f"[Server Message] Channel \"{repr{new_channel}}\" does not exist."
             message = f"[Server Message] Channel \"{new_channel_repr}\" does not exist."
             sock.sendall(message.encode())
             return False
