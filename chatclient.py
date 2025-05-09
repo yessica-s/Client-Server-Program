@@ -107,7 +107,7 @@ def handle_stdin(sock):
                         file_path = commands[2].strip()
                         sock.send(line.encode())
                         sending = True
-                elif commands[0] == "/switch" or "/switch\n":
+                elif commands[0] == "/switch":
                     if len(commands) != 2: # too little/many arguments
                         print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
                     elif commands[1] == "" or commands[1] == " ":
@@ -115,7 +115,7 @@ def handle_stdin(sock):
                     else: 
                         sock.send(line.encode())
                 elif commands[0] == "/switch\n": 
-                   print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True) 
+                    print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True) 
                 else:
                     if mute: 
                         print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
