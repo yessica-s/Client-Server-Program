@@ -416,7 +416,9 @@ class Server:
                 channel.queue_clients -= 1 # decrement number of clients in Queue
                 return
             else:
+                # data_decoded = data.decode() # .strip()
                 data_decoded = data.decode().strip()
+                commands = data_decoded.split(" ")
                 if data_decoded == "/quit" or data_decoded == "/quit\n":
                     quit_from_queue = True
                     self.disconnect(channel, client_username)
@@ -424,7 +426,7 @@ class Server:
                     return
                 elif data_decoded == "/list" or data_decoded == "/list\n":
                     self.list_command(sock)
-                elif data_decoded[0] == "/switch":
+                elif commands[0] == "/switch":
                     self.switch_command(sock, channel, commands, client_username, True)
             
         # Check if somehow disconnected while being moved from queue - connected 
@@ -454,7 +456,7 @@ class Server:
             if not data:
                 break
 
-            data_decoded = data.decode().strip()
+            data_decoded = data.decode() # .strip()
             commands = data_decoded.split(" ")
 
             if data_decoded == "/quit" or data_decoded == "/quit\n":
@@ -530,20 +532,6 @@ class Server:
         ack = target_socket.recv(BUFSIZE).decode().strip()
         if ack == "[Client Message] Ready":
             target_socket.sendall(file_data)
-        
-            # data = target_socket.recv(BUFSIZE).decode().strip()
-            
-            # if data == "[Client Message] File Transfer Failed" or failed_transfer:
-            #     message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-            #     sock.sendall(message.encode())
-            #     failed_transfer = False
-            #     return
-
-            # if failed_transfer:
-            #     message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-            #     sock.sendall(message.encode())
-            #     failed_transfer = False
-            #     return
 
             if failed_transfer_event.is_set():
                 message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
@@ -726,12 +714,6 @@ class Server:
         message = "[Server Message] Start transmission."
         sock.sendall(message.encode())
 
-        # Client checks if file path can be opened
-
-        # File size and everything handled by recv
-        # Get file size
-        # data = sock.recv(BUFSIZE).decode().strip()
-
     # creates output for client when client sends /list command
     def list_command(self, sock):
         for channel in self.channels:
@@ -758,12 +740,11 @@ class Server:
             sock.sendall(message.encode()) # successful whisper message to sender client
         
     def switch_command(self, sock, channel, commands, client_username, queue_client):
-        # TODO: create function like handle client separate for switch and debug
-
         new_channel = commands[1]
-        # print(new_channel, flush=True)
         if new_channel not in self.channel_names:
-            message = f"[Server Message] Channel \"{new_channel}\" does not exist."
+            new_channel_repr = repr(new_channel)[1:-1]
+            # message = f"[Server Message] Channel \"{repr{new_channel}}\" does not exist."
+            message = f"[Server Message] Channel \"{new_channel_repr}\" does not exist."
             sock.sendall(message.encode())
             return False
         
@@ -780,28 +761,6 @@ class Server:
             return False
         
         return True
-        
-        # self.disconnect(channel, client_username)
-    
-        # Switch to go ahead
-        
-
-
-        # if not self.handle_client(new_channel, sock, True): # Failed due to duplicate username, stay in current channel
-        #     return False
-        
-        # Switch has worked - send messages
-        # self.disconnect(channel, client_username)
-
-        # message = f"[Server Message] {client_username} has left the channel."
-        # print(message, file=sys.stdout, flush=True)
-        # if not queue_client: 
-        #     with counter_lock:
-        #         for client in channel.connected_clients: 
-        #             if not client == client_username: #
-        #                 socket = channel.client_sockets[client] # get socket for each client
-        #                 socket.sendall(message.encode()) # send
-
 
     def main(self):
         self.load_config()
