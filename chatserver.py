@@ -70,6 +70,10 @@ class Server:
                 #     print("Error: Invalid configuration file.", file=sys.stderr)
                 #     exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
 
+                if '\r\n' in line: # '\r\n' in line or '^M' in line: # check for trailing characters e.g. ^M #  
+                    print("Error: Invalid configuration file.", file=sys.stderr)
+                    exit(EXIT_CODES.CONFIG_FILE_ERROR.value)
+
                 line = line.strip() # remove leading or trailing whitespace
                 channel = line.split(" ")
 
@@ -741,8 +745,10 @@ class Server:
         
     def switch_command(self, sock, channel, commands, client_username, queue_client):
         new_channel = commands[1]
+        new_channel_repr = repr(new_channel)[1:-1]
+        new_channel = new_channel_repr
         if new_channel not in self.channel_names:
-            new_channel_repr = repr(new_channel)[1:-1]
+            # new_channel_repr = repr(new_channel)[1:-1]
             message = f"[Server Message] Channel \"{new_channel_repr}\" does not exist."
             sock.sendall(message.encode())
             return False
