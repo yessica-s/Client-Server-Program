@@ -32,15 +32,6 @@ def usage_checking():
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
 
-    # if sys.argv[1] == "" or sys.argv[2] == "":  # empty strings
-    #     print("Usage: chatclient port_number client_username", file=sys.stderr)
-    #     exit(EXIT_CODES.USAGE_ERROR.value)
-
-    # # check client username or port is space 
-    # if sys.argv[1] == " " or sys.argv[2] == " ":  # empty strings
-    #     print("Usage: chatclient port_number client_username", file=sys.stderr)
-    #     exit(EXIT_CODES.USAGE_ERROR.value)
-
     if " " in sys.argv[2]: # check username contains space
         print("Usage: chatclient port_number client_username", file=sys.stderr)
         exit(EXIT_CODES.USAGE_ERROR.value)
@@ -116,10 +107,7 @@ def handle_stdin(sock):
                         file_path = commands[2].strip()
                         sock.send(line.encode())
                         sending = True
-
-                        # data = sock.recv(BUFSIZE).decode().strip()
-                        # if data == "[Server Message] Start transmisson.":
-                elif commands[0] == "/switch":
+                elif commands[0] == "/switch" or "/switch\n":
                     if len(commands) != 2: # too little/many arguments
                         print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True)
                     elif commands[1] == "" or commands[1] == " ":
@@ -127,7 +115,7 @@ def handle_stdin(sock):
                     else: 
                         sock.send(line.encode())
                 elif commands[0] == "/switch\n": 
-                    print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True) 
+                   print("[Server Message] Usage: /switch channel_name", file=sys.stdout, flush=True) 
                 else:
                     if mute: 
                         print(f"[Server Message] You are still in mute for {mute_duration} seconds.", file=sys.stdout, flush=True)
@@ -145,7 +133,6 @@ def handle_socket(sock, client_username):
         try: 
             data = sock.recv(BUFSIZE).decode().strip()
 
-            # if re.match(r'^\[Server Message\] ".*?" is not in the channel\.$', data) and sending == True:
             if re.match(r'^\[Server Message\] .+ is not in the channel\.$', data): 
                 print(data, file=sys.stdout,flush=True)
                 client_doesnt_exist = True # server gave error that client sending to doesn't exist
@@ -167,10 +154,9 @@ def handle_socket(sock, client_username):
 
                             # Send file data 
                             sock.sendall(file_data)
-                            # sending = False
-                            # file_path = None
                 except FileNotFoundError:
                     print(f"[Server Message] \"{file_path}\" does not exist.", file=sys.stdout, flush=True)
+                    
                     
                 sending = False
                 file_path = None
@@ -207,10 +193,18 @@ def handle_socket(sock, client_username):
                     message = "[Client Message] Received"
                     sock.sendall(message.encode())
 
-                    with open(basename, "wb") as f:
-                        f.write(file_data)
+                    try:
+                        with open(basename, "wb") as f:
+                            f.write(file_data)
+                    except PermissionError:
+                        message = "[Client Message] File Transfer Failed"
+                        sock.sendall(message.encode())
 
                 continue
+
+            connected_message = f"Welcome to chatclient, {client_username}."
+            if data == connected_message:
+                mute = False
             
             afk_message = rf'^\[Server Message\] {re.escape(client_username)} went AFK in channel ".*?"\.$'
             if re.match(afk_message, data):
@@ -266,8 +260,7 @@ def handle_mute(duration):
     unmute_thread.daemon = True
     unmute_thread.start()
 
-def main():
-
+def main(): 
     usage_checking()
     # check port is integer here while converting
     port = None

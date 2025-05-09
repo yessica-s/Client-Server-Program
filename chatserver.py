@@ -3,7 +3,7 @@ import sys
 from sys import stdin, stdout
 import re
 from socket import *
-from threading import Lock, Thread, Timer, current_thread
+from threading import Event, Lock, Thread, Timer, current_thread
 from enum import Enum
 from queue import Queue
 
@@ -14,6 +14,8 @@ class EXIT_CODES(Enum):
 
 quit = False
 quit_from_queue = False
+failed_transfer = False
+failed_transfer_event = Event()
 
 # Shared resource (counter to count the number of data packets received)
 counter = 0
@@ -387,6 +389,7 @@ class Server:
         # Continuously listen and send data to other clients in channel
         global quit
         global quit_from_queue
+        global failed_transfer
         target_client = None
         file_path = None
         
@@ -482,12 +485,15 @@ class Server:
                 file_path = commands[2].strip()
                 self.send_command(sock, channel, commands, client_username)
                 continue
-            elif data_decoded == "[Client Message] Received":
+            elif data_decoded == "[Client Message] Received" or data_decoded == "[Client Message] Ready":
+                continue  
+            elif data_decoded == "[Client Message] File Transfer Failed":
+                failed_transfer_event.set()
+                failed_transfer = True
                 continue
-                # elif data_decoded == "[Client Message] Ready" or data_decoded == "[Client Message] File Transfer Failed" or data_decoded == "[Client Message] Received": 
-                #     continue # part of file transfer process - handled in sending client's thread  
             elif commands[0] == "[FileSize]": # client file sending handled in send function
                 self.handle_file_transfer(channel, commands, target_client, file_path, sock, client_username)
+            
             else: 
                 self.print_message(data, client_username, channel)
 
@@ -498,6 +504,7 @@ class Server:
     
 
     def handle_file_transfer(self, channel, commands, target_client, file_path, sock, client_username):
+        global failed_transfer
         file_size = int(commands[1])
 
         file_data = b""
@@ -506,9 +513,9 @@ class Server:
             current = sock.recv(min(BUFSIZE, file_size - len(file_data)))
             if not current: # Failed
                 message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-                sock = channel.client_sockets.get(client_username)
                 sock.sendall(message.encode())
-                continue
+                # continue
+                return
             file_data += current
 
         # Received, transfer to target client now
@@ -524,18 +531,25 @@ class Server:
         if ack == "[Client Message] Ready":
             target_socket.sendall(file_data)
         
-            # print("waiting for data",flush=True)
             # data = target_socket.recv(BUFSIZE).decode().strip()
-            # print("got it", flush=True)
-
-            # if data == "[Client Message] File Transfer Failed":
+            
+            # if data == "[Client Message] File Transfer Failed" or failed_transfer:
             #     message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
-            #     sock = channel.client_sockets.get(client_username)
             #     sock.sendall(message.encode())
-            #     continue
-            # elif data == "[Client Message] Received":
-            #     print("recevied the received message", flush=True)
-            #     pass
+            #     failed_transfer = False
+            #     return
+
+            # if failed_transfer:
+            #     message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
+            #     sock.sendall(message.encode())
+            #     failed_transfer = False
+            #     return
+
+            if failed_transfer_event.is_set():
+                message = f"[Server Message] Failed to send \"{file_path}\" to {target_client}"
+                sock.sendall(message.encode())
+                failed_transfer_event.clear()
+                return
 
             # Send sent message to client
             message = f"[Server Message] Sent \"{file_path}\" to {target_client}."
@@ -553,6 +567,8 @@ class Server:
             file_path = None
         else: 
             self.print_message(ack, client_username, channel)
+
+        failed_transfer = False
 
     def disconnect(self, channel, client_username, switch):
         message = f"[Server Message] {client_username} has left the channel."
@@ -803,9 +819,10 @@ def usage_checking(arr):
 
     # Check empty arguments
     for arg in sys.argv:
-        if arg == "" or arg == " ":
+        if arg == "" or arg == " " or " " in arg:
             print("Usage: chatserver [afk_time] config_file", file=sys.stderr)
             exit(EXIT_CODES.USAGE_ERROR.value)
+
 
     config_file = sys.argv[1] # default as only argument if afk_time not present
 
